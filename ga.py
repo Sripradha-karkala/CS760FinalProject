@@ -1,13 +1,18 @@
-from ca import make_argument_parser, Data, UpdateRule, CellularAutomaton, evaluate_rule
+from ca import make_argument_parser as make_ca_argument_parser, Data, UpdateRule, CellularAutomaton, evaluate_rule
 import random
 import numpy as np
 import matplotlib.pyplot as plt
 
 POPULATION_SIZE = 100
-N_GENERATIONS = 5
 PERTURB_AMOUNT = 0.001 # I dunno
 SURVIVOR_RATIO = 0.2 # on average 20% of the population survives
 HUGE_NUMBER = 1e20
+
+def make_ga_argument_parser():
+    parser = make_ca_argument_parser()
+    parser.add_argument('-g', '--generations', type = int, default = 5,
+            help = 'Specify the number of generations to train for.')
+    return parser
 
 # Comment or uncommont to change the pruning strategy
 USE_SELECTION_STRATEGY_A = True
@@ -26,6 +31,7 @@ def make_random_rule(neighborhood_size):
 
 def genetic_train(args):
     neighborhood_size = args.neighbor
+    n_generations = args.generations
     data = Data(args.input_file, args.split)
 
     # Initialize search at cells with random parameters
@@ -33,7 +39,7 @@ def genetic_train(args):
 
     # Iterate through generations:
     history = []
-    for k in range(N_GENERATIONS):
+    for k in range(n_generations):
         print '== begin generation %s ==' % k
         # Evaluate every CA in the population
         evaluations = []
@@ -83,7 +89,7 @@ def genetic_train(args):
     plot_timeseries(history)
 
 def parse_args():
-    parser = make_argument_parser()
+    parser = make_ga_argument_parser()
     return parser.parse_args()
 
 if __name__ == '__main__':
