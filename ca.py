@@ -50,11 +50,17 @@ class UpdateRule:
             + self.weights[1:-1].dot(neighbor_values) + self.weights[-1]
 
     def make_weights(self, magnitude):
-        return magnitude * np.random.rand(self.neighborhood_size + 2) # +1 for self, +1 for bias
+        return magnitude * np.random.rand(self.neighborhood_size + 2) - float(magnitude) / 2 # +1 for self, +1 for bias
 
     def perturb(self, amount):
         offset = self.make_weights(amount)
         return UpdateRule(self.neighborhood_size, self.weights + offset)
+
+    def perturb_single_weight(self, amount):
+        # TODO
+        # Choose a random index and perturb it
+        index = random.randint(0, len(self.weights) - 1)
+
 
 
 class CellularAutomaton:

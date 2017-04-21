@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 POPULATION_SIZE = 100
-PERTURB_AMOUNT = 0.001 # I dunno
+PERTURB_AMOUNT = 0.1 # I dunno
 SURVIVOR_RATIO = 0.2 # on average 20% of the population survives
 HUGE_NUMBER = 1e20
 
