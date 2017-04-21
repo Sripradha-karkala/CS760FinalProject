@@ -10,6 +10,7 @@ b = np.array([2.,4.,6.])
 
 data = np.array([a,b])
 
+# TODO refactor to a lists of training and test matrices, by batch_size
 class Data:
     """Given a CSV file of flu rates, create two matrices for training and testing.
     These can be accessed by the properties train_data and test_data.
@@ -80,17 +81,16 @@ class CellularAutomaton:
 """Calculate the error of a given CA on a set of training data
 Arguments:
 rule -- an instance of UpdateRule
-data -- a matrix of CA values, where data[t] is an array of all cells values at time t
-[TODO remove batch_size]"""
-def evaluate_rule(rule, data, batch_size):
+data -- a matrix of CA values, where data[t] is an array of all cells values at time t"""
+def evaluate_rule(rule, data):
     ca = CellularAutomaton(data[0], rule)
     error = 0.0
     debug_errors = []
-    for t in range(batch_size):
+    for t in range(1, len(data)):
         ca.update()
         error += sum(abs(ca.get_values() - data[t]))
         debug_errors.append(error)
-    # print 'cumulative errors: %s' % debug_errors
+    print 'cumulative errors: %s' % debug_errors
     return error
 
 def main(args):

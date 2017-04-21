@@ -15,7 +15,6 @@ def make_random_rule(neighborhood_size):
     return UpdateRule(neighborhood_size)
 
 def genetic_train(args):
-    batch_size = args.batch
     neighborhood_size = args.neighbor
     data = Data(args.input_file, args.split)
 
@@ -29,7 +28,7 @@ def genetic_train(args):
         evaluations = []
         for update_rule in population:
             try:
-                evaluations.append(evaluate_rule(update_rule, data.train_data, batch_size))
+                evaluations.append(evaluate_rule(update_rule, data.train_data))
             except OverflowError:
                 # Just append a really big weight if the CA is broken
                 evaluations.append(10000)
