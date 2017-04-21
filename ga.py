@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 POPULATION_SIZE = 100
-PERTURB_AMOUNT = 0.1 # I dunno
 SURVIVOR_RATIO = 0.2 # on average 20% of the population survives
 HUGE_NUMBER = 1e20
 
@@ -12,6 +11,8 @@ def make_ga_argument_parser():
     parser = make_ca_argument_parser()
     parser.add_argument('-g', '--generations', type = int, default = 5,
             help = 'Specify the number of generations to train for.')
+    parser.add_argument('-p', '--perturb', type = float, default = 0.1,
+            help = 'Specify the amount to mutate the weights by each generation.')
     return parser
 
 # Comment or uncommont to change the pruning strategy
@@ -31,6 +32,7 @@ def make_random_rule(neighborhood_size):
 
 def genetic_train(args):
     neighborhood_size = args.neighbor
+    perturb_amount = args.perturb
     n_generations = args.generations
     data = Data(args.input_file, args.split)
 
@@ -82,7 +84,7 @@ def genetic_train(args):
         for i in range(POPULATION_SIZE - generation_size):
             # Cycle through survivors to be parents
             parent = new_population[i % generation_size]
-            new_population.append(parent.perturb(PERTURB_AMOUNT)) # TODO consider making this smaller throughout training
+            new_population.append(parent.perturb(perturb_amount)) # TODO consider making this smaller throughout training
 
         population = new_population
 
