@@ -11,6 +11,13 @@ b = np.array([2.,4.,6.])
 data = np.array([a,b])
 
 class Data:
+    """Given a CSV file of flu rates, create two matrices for training and testing.
+    These can be accessed by the properties train_data and test_data.
+
+    Arguments:
+    file_name -- CSV flu rates file
+    testset_split -- proportion of data to use for testing
+    """
     def __init__(self, file_name, testset_split):
         with open(file_name) as input_file:
             csv.reader(input_file, delimiter = ',')
@@ -23,6 +30,13 @@ class Data:
         self.test_data = d[trainset_size:,:]
 
 class UpdateRule:
+    """Constructs an update function, which can be called like any normal Python function.
+    This represents a point in the parameter space of the CA.
+
+    Arguments:
+    [TODO remove] neighborhood_size -- the number of neighbors of a cell
+    weights (optional) -- an weight matrix
+    """
     def __init__(self, neighborhood_size, weights = None):
         self.neighborhood_size = neighborhood_size
         if weights is None:
@@ -43,6 +57,11 @@ class UpdateRule:
 
 
 class CellularAutomaton:
+    """Given an update rule an initial values, the CA can repeatedly update its own state.
+
+    Arguments:
+    initial_values -- an array of cell values at time 0
+    update_rule -- an instance of UpdateRule to update the cell values"""
     def __init__(self, initial_values, update_rule):
         self.values = np.copy(initial_values)
         self.update_rule = update_rule
@@ -58,6 +77,11 @@ class CellularAutomaton:
     def get_values(self):
         return self.values
 
+"""Calculate the error of a given CA on a set of training data
+Arguments:
+rule -- an instance of UpdateRule
+data -- a matrix of CA values, where data[t] is an array of all cells values at time t
+[TODO remove batch_size]"""
 def evaluate_rule(rule, data, batch_size):
     ca = CellularAutomaton(data[0], rule)
     error = 0.0
