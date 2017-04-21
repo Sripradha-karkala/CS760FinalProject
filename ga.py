@@ -1,15 +1,25 @@
 from ca import make_argument_parser, Data, UpdateRule, CellularAutomaton, evaluate_rule
 import random
 import numpy as np
+import matplotlib.pyplot as plt
 
 POPULATION_SIZE = 100
-N_GENERATIONS = 100
-PERTURB_AMOUNT = 0.1 # I dunno
+N_GENERATIONS = 5
+PERTURB_AMOUNT = 0.001 # I dunno
 SURVIVOR_RATIO = 0.2 # on average 20% of the population survives
+HUGE_NUMBER = 1e20
 
 # Comment or uncommont to change the pruning strategy
 USE_SELECTION_STRATEGY_A = True
 # USE_SELECTION_STRATEGY_A = False
+
+def plot_timeseries(values):
+    values_1 = [v[0] for v in values]
+    # plt.ylim(min(values_1), max(values_1))
+    # plt.plot(range(len(values)), values_1)
+    plt.plot(values_1)
+    plt.ylabel('Error')
+    plt.show()
 
 def make_random_rule(neighborhood_size):
     return UpdateRule(neighborhood_size)
@@ -22,6 +32,7 @@ def genetic_train(args):
     population = [make_random_rule(neighborhood_size) for _ in range(POPULATION_SIZE)]
 
     # Iterate through generations:
+    history = []
     for k in range(N_GENERATIONS):
         print '== begin generation %s ==' % k
         # Evaluate every CA in the population
@@ -31,7 +42,7 @@ def genetic_train(args):
                 evaluations.append(evaluate_rule(update_rule, data.train_data))
             except OverflowError:
                 # Just append a really big weight if the CA is broken
-                evaluations.append(10000)
+                evaluations.append(HUGE_NUMBER)
 
         # Calculate the best and average error over this generation
 
@@ -43,6 +54,7 @@ def genetic_train(args):
         if USE_SELECTION_STRATEGY_A:
             new_population = [population[best_index]]
         print 'errors: best %s, average %s' % (evaluations[best_index], average)
+        history.append((evaluations[best_index], average))
 
         # Prune population according to probability of survival
         # TODO is inverse error a good fitness?
@@ -67,6 +79,8 @@ def genetic_train(args):
             new_population.append(parent.perturb(PERTURB_AMOUNT)) # TODO consider making this smaller throughout training
 
         population = new_population
+
+    plot_timeseries(history)
 
 def parse_args():
     parser = make_argument_parser()

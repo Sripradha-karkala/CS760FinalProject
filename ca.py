@@ -90,7 +90,7 @@ def evaluate_rule(rule, data):
         ca.update()
         error += sum(abs(ca.get_values() - data[t]))
         debug_errors.append(error)
-    print 'cumulative errors: %s' % debug_errors
+    # print 'cumulative errors: %s' % debug_errors
     return error
 
 def main(args):
