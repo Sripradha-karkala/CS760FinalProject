@@ -10,30 +10,31 @@ b = np.array([2.,4.,6.])
 
 data = np.array([a,b])
 
-# TODO refactor to a lists of training and test matrices, by batch_size
 class Data:
     """Given a CSV file of flu rates, create two matrices for training and testing.
     These can be accessed by the properties train_data and test_data.
-
     Arguments:
     file_name -- CSV flu rates file
-    testset_split -- proportion of data to use for testing
+    num_folds -- number of folds to partition
+    ILI - True if the input data metric is %ILI, False otherwise
     """
-    def __init__(self, file_name, testset_split):
+    def __init__(self, file_name, num_folds, ILI):
         with open(file_name) as input_file:
             csv.reader(input_file, delimiter = ',')
             data = list(input_file)
-        data = data[12:] # first 12 lines have comments
         data = [numbers.split(',') for numbers in data]
-        d = np.array(data)[:,1:].astype(int) # first column has date
-        trainset_size = int(math.ceil((1.0 - testset_split) * len(d)))
-        self.train_data = d[:trainset_size,:]
-        self.test_data = d[trainset_size:,:]
+        if ILI:
+            d = np.array(data)[1:,1:].astype(float) # first column has date
+        else:
+            d = np.array(data)[1:,1:].astype(int) # first column has date
+        self.partitions = []
+        partition_size = int(math.ceil(len(d)/num_folds))
+        for i in range(num_folds):
+            self.partitions.append(d[(i*partition_size):((i+1)*partition_size),:])
 
 class UpdateRule:
     """Constructs an update function, which can be called like any normal Python function.
     This represents a point in the parameter space of the CA.
-
     Arguments:
     [TODO remove] neighborhood_size -- the number of neighbors of a cell
     weights (optional) -- an weight matrix
@@ -65,7 +66,6 @@ class UpdateRule:
 
 class CellularAutomaton:
     """Given an update rule an initial values, the CA can repeatedly update its own state.
-
     Arguments:
     initial_values -- an array of cell values at time 0
     update_rule -- an instance of UpdateRule to update the cell values"""
@@ -122,4 +122,3 @@ def parse_args():
 
 if __name__ == '__main__':
     main(parse_args())
-
