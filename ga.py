@@ -1,4 +1,5 @@
 from ca import make_argument_parser as make_ca_argument_parser, Data, UpdateRule, CellularAutomaton, evaluate_rule
+from trainer import Trainer, basic_train
 import random
 import numpy as np
 import matplotlib.pyplot as plt
@@ -30,69 +31,78 @@ def plot_timeseries(values):
 def make_random_rule(neighborhood_size):
     return UpdateRule(neighborhood_size)
 
-def genetic_train(args):
-    neighborhood_size = args.neighbor
-    perturb_amount = args.perturb
-    n_generations = args.generations
-    data = Data(args.input_file, args.split)
+def evaluate_on_intervals(rule, intervals):
+    error = 0.0
+    for interval in intervals:
+        error += evaluate_rule(rule, interval)
+    return error
 
-    # Initialize search at cells with random parameters
-    population = [make_random_rule(neighborhood_size) for _ in range(POPULATION_SIZE)]
+class GeneticTrainer:
+    def __init__(self, args):
+        self.neighborhood_size = args.neighbor
+        self.perturb_amount = args.perturb
+        self.n_generations = args.generations
 
-    # Iterate through generations:
-    history = []
-    for k in range(n_generations):
-        print '== begin generation %s ==' % k
-        # Evaluate every CA in the population
-        evaluations = []
-        for update_rule in population:
-            try:
-                evaluations.append(evaluate_rule(update_rule, data.train_data))
-            except OverflowError:
-                # Just append a really big weight if the CA is broken
-                evaluations.append(HUGE_NUMBER)
+    def train(self, intervals):
+        # Initialize search at cells with random parameters
+        population = [make_random_rule(self.neighborhood_size) for _ in range(POPULATION_SIZE)]
 
-        # Calculate the best and average error over this generation
+        # Iterate through generations:
+        history = []
+        for k in range(self.n_generations):
+            print '== begin generation %s ==' % k
+            # Evaluate every CA in the population
+            evaluations = []
+            for update_rule in population:
+                try:
+                    evaluations.append(evaluate_on_intervals(update_rule, intervals))
+                except OverflowError:
+                    # Just append a really big weight if the CA is broken
+                    evaluations.append(HUGE_NUMBER)
 
-        average = float(sum(evaluations)) / len(evaluations)
-        best_index = 0
-        for i in range(len(population)):
-            if evaluations[i] <= evaluations[best_index]:
-                best_index = i
-        if USE_SELECTION_STRATEGY_A:
-            new_population = [population[best_index]]
-        print 'errors: best %s, average %s' % (evaluations[best_index], average)
-        history.append((evaluations[best_index], average))
+            # Calculate the best and average error over this generation
 
-        # Prune population according to probability of survival
-        # TODO is inverse error a good fitness?
-        if not USE_SELECTION_STRATEGY_A:
-            fitnesses = [1/float(error) if error != 0 else 10000 for error in evaluations]
-            sum_fitness = sum(fitnesses)
-            new_population = []
-            for update_rule, fitness in zip(population, fitnesses):
-                # Probability of success is fraction of fitness of total
-                if float(fitness) / sum_fitness > random.random() * SURVIVOR_RATIO:
-                    new_population.append(update_rule)
+            average = float(sum(evaluations)) / len(evaluations)
+            best_index = 0
+            for i in range(len(population)):
+                if evaluations[i] <= evaluations[best_index]:
+                    best_index = i
+            if USE_SELECTION_STRATEGY_A:
+                new_population = [population[best_index]]
+            print 'errors: best %s, average %s' % (evaluations[best_index], average)
+            history.append((evaluations[best_index], average))
 
-        if len(new_population) == 0:
-            print 'ah geez, no one lived ):'
-            new_population.append(population[0])
+            # Prune population according to probability of survival
+            # TODO is inverse error a good fitness?
+            if not USE_SELECTION_STRATEGY_A:
+                fitnesses = [1/float(error) if error != 0 else 10000 for error in evaluations]
+                sum_fitness = sum(fitnesses)
+                new_population = []
+                for update_rule, fitness in zip(population, fitnesses):
+                    # Probability of success is fraction of fitness of total
+                    if float(fitness) / sum_fitness > random.random() * SURVIVOR_RATIO:
+                        new_population.append(update_rule)
 
-        # Create next generation by perturbing the best performers.
-        generation_size = len(new_population)
-        for i in range(POPULATION_SIZE - generation_size):
-            # Cycle through survivors to be parents
-            parent = new_population[i % generation_size]
-            new_population.append(parent.perturb(perturb_amount)) # TODO consider making this smaller throughout training
+            if len(new_population) == 0:
+                print 'ah geez, no one lived ):'
+                new_population.append(population[0])
 
-        population = new_population
+            # Create next generation by perturbing the best performers.
+            generation_size = len(new_population)
+            for i in range(POPULATION_SIZE - generation_size):
+                # Cycle through survivors to be parents
+                parent = new_population[i % generation_size]
+                new_population.append(parent.perturb(self.perturb_amount)) # TODO consider making this smaller throughout training
 
-    plot_timeseries(history)
+            population = new_population
+
+        plot_timeseries(history)
 
 def parse_args():
     parser = make_ga_argument_parser()
     return parser.parse_args()
 
 if __name__ == '__main__':
-    genetic_train(parse_args())
+    args = parse_args()
+    trainer = GeneticTrainer(args)
+    basic_train(args.input_file, args.split, trainer)
