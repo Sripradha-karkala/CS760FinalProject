@@ -31,6 +31,17 @@ def plot_timeseries(values):
 def make_random_rule(neighborhood_size):
     return UpdateRule(neighborhood_size)
 
+def argmin(l):
+    if len(l) == 1:
+        return 0
+    best = l[0]
+    best_i = 0
+    for i in range(1, len(l)):
+        if l[i] <= best:
+            best_i = i
+            best = l[i]
+    return best_i
+
 def evaluate_on_intervals(rule, intervals):
     error = 0.0
     for interval in intervals:
@@ -43,7 +54,7 @@ class GeneticTrainer:
         self.perturb_amount = args.perturb
         self.n_generations = args.generations
 
-    def train(self, intervals):
+    def train(self, intervals, graph):
         # Initialize search at cells with random parameters
         population = [make_random_rule(self.neighborhood_size) for _ in range(POPULATION_SIZE)]
 
@@ -63,10 +74,7 @@ class GeneticTrainer:
             # Calculate the best and average error over this generation
 
             average = float(sum(evaluations)) / len(evaluations)
-            best_index = 0
-            for i in range(len(population)):
-                if evaluations[i] <= evaluations[best_index]:
-                    best_index = i
+            best_index = argmin(evaluations)
             if USE_SELECTION_STRATEGY_A:
                 new_population = [population[best_index]]
             print 'errors: best %s, average %s' % (evaluations[best_index], average)
@@ -97,6 +105,8 @@ class GeneticTrainer:
             population = new_population
 
         plot_timeseries(history)
+        best_index = argmin(evaluations)
+        return population[best_index]
 
 def parse_args():
     parser = make_ga_argument_parser()
