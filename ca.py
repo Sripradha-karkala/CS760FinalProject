@@ -15,14 +15,36 @@ class Data:
     These can be accessed by the properties train_data and test_data.
     Arguments:
     file_name -- CSV flu rates file
+    neighbor_file -- File containing cities and weights 
     num_folds -- number of folds to partition
     ILI - True if the input data metric is %ILI, False otherwise
     """
-    def __init__(self, file_name, num_folds, ILI):
+    def __init__(self, file_name, neighbor_file, num_folds, ILI):
         with open(file_name) as input_file:
             csv.reader(input_file, delimiter = ',')
             data = list(input_file)
         data = [numbers.split(',') for numbers in data]
+
+        #Parse the neighbour file to create the weighted graph 
+        neighbor_data = []
+        with open(neighbor_file) as f_neighbor:
+            #csv.reader(f_neighbor, delimiter=',')
+            lines = f_neighbor.readlines();
+            for line in lines:
+                row = line.split(',')
+                neighbor_data.append(row);
+        #neighbor_data
+        self.cities = []
+        for city in neighbor_data:
+            self.cities.append(city[0]) #The first city is the source
+
+        # Build the graph based on adjacency matrix
+        # 0 if no edge exists between two cities
+        self.graph = [[0 for i in self.cities] for j in self.cities]
+        for row in neighbor_data:
+            for i in range(1,len(row)-2,2):
+                self.graph[self.cities.index(row[0])][self.cities.index(row[i])] = int(row[i+1])
+
         if ILI:
             d = np.array(data)[1:,1:].astype(float) # first column has date
         else:
@@ -100,7 +122,8 @@ def evaluate_rule(rule, data):
     return error
 
 def main(args):
-    data = Data(args.input_file, args.split)
+    
+    data = Data(args.input_file, args.neighbor_file, args.split)
     rule = UpdateRule(args.neighbor)
     evaluate_rule(rule, data.train_data, args.batch)
 
@@ -108,7 +131,9 @@ def make_argument_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('input_file', type = str,
             help='Specify the path/filename of the input data.')
-    parser.add_argument('-s', '--split', type = float, default = 0.3,
+    parser.add_argument('neighbor_file', type = str,
+            help='Specify the path/filename of the neighbor data.')
+    parser.add_argument('-s', '--split', type = float, default = 0.3, 
             help = 'Specify the portion of data to use as testset, e.g. 0.3.')
     parser.add_argument('-n', '--neighbor', type = int, default = 2,
             help = 'Specify the number of neighbors to use.')
