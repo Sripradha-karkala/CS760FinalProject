@@ -4,6 +4,7 @@ import csv
 import sys
 import math
 import argparse
+import matplotlib.pyplot as plt
 
 a = np.array([1.,2.,3.])
 b = np.array([2.,4.,6.])
@@ -120,6 +121,34 @@ def evaluate_rule(rule, data):
         debug_errors.append(error)
     # print 'cumulative errors: %s' % debug_errors
     return error
+    
+"""Calculate the error of a given CA node on a set of training data and plot values
+Arguments:
+rule -- an instance of UpdateRule
+data -- a matrix of CA values, where data[t] is an array of all cells values at time t
+city_index -- index of the node in question"""
+def plot_error(rule, data, city_index):
+    ca = CellularAutomaton(data[0], rule)
+    output = []
+    desired_output = []
+    error = []
+    # Calculate output and error for each time step
+    for t in range(1, len(data)):
+        ca.update()
+        current_output = ca.get_values()[city_index]
+        current_desired_output = data[t][city_index]
+        current_error = abs(current_output - current_desired_output)
+        output.append(current_output)
+        desired_output.append(current_desired_output)
+        error.append(current_error)
+
+    # Plot output, desired output, and error
+    plt.plot(output, label='output')
+    plt.plot(desired_output, label='desired')
+    plt.plot(error, label='error')
+    plt.legend()
+    plt.xlabel('Iteration')
+    plt.show()
 
 def main(args):
     
