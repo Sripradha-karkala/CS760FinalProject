@@ -1,8 +1,11 @@
 # CS760FinalProject
 Epidemic prediction using cellular automata
 
-Genetic training from the command line:
+Run genetic trainer
 ```python ga.py smallData.csv CA_Graph_Input.csv```
+
+Run genetic trainer with four-fold cross-fold validation:
+```python ga.py smallData.csv CA_Graph_Input.csv -f 4```
 
 - [ ] Sripradha: Under Data class in ca.py, create neighborhood graph (Jaime sent you an email)
 - [ ] Leland: Visualize ga progress, other fancy pretty things

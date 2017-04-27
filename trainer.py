@@ -21,4 +21,4 @@ def cross_validation_train(trainer, data):
     """
     #
     # TODO - Leland
-    pass
+    print 'cross_validation_train'

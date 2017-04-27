@@ -1,5 +1,5 @@
 from ca import make_argument_parser as make_ca_argument_parser, Data, UpdateRule, CellularAutomaton, evaluate_rule, DataType
-from trainer import Trainer, basic_train
+from trainer import Trainer, basic_train, cross_validation_train
 import random
 import numpy as np
 import matplotlib.pyplot as plt
@@ -128,6 +128,9 @@ if __name__ == '__main__':
     trainer = GeneticTrainer(args)
     data = Data.create_from_args(args)
 
-    # Train it with a train-test split.
-    # TODO add support for cross validation
-    basic_train(trainer, data)
+    if args.num_folds is None:
+        # Train it with a train-test split.
+        basic_train(trainer, data)
+    else:
+        # Train it with CV trainer if -f flag is passed
+        cross_validation_train(trainer, data)
