@@ -11,22 +11,39 @@ b = np.array([2.,4.,6.])
 
 data = np.array([a,b])
 
+class DataType:
+    """There are two kinds of CA state data - continuous-valued and integer-valued.
+    Extend this if you want to add additional options.
+    """
+    DATA_WITH_FLOATS = 1
+    DATA_WITH_INTS = 2
+
 class Data:
-    """Given a CSV file of flu rates, create two matrices for training and testing.
-    These can be accessed by the properties train_data and test_data.
+    """Loads data from files. Represents time-series and graph data from a CA simulation.
+
+    Attributes:
+    partitions - A list of matrices representing slices of data.
+    """
+
+    """Constructor: Given a CSV file of flu rates, create a list of matrices for training and testing.
+
     Arguments:
     file_name -- CSV flu rates file
-    neighbor_file -- File containing cities and weights 
+    neighbor_file -- File containing cities and weights
     num_folds -- number of folds to partition
-    ILI - True if the input data metric is %ILI, False otherwise
+
+    Keyword arguments (kwargs):
+    num_folds -- If this is provided, the data will be divided into cross validation folds.
+    split -- If this is provided, then this proportion of data will be put in the first partition.
     """
-    def __init__(self, file_name, neighbor_file, num_folds, ILI):
+    def __init__(self, file_name, neighbor_file, data_type, **kwargs):
+
         with open(file_name) as input_file:
             csv.reader(input_file, delimiter = ',')
             data = list(input_file)
         data = [numbers.split(',') for numbers in data]
 
-        #Parse the neighbour file to create the weighted graph 
+        #Parse the neighbour file to create the weighted graph
         neighbor_data = []
         with open(neighbor_file) as f_neighbor:
             #csv.reader(f_neighbor, delimiter=',')
@@ -46,14 +63,28 @@ class Data:
             for i in range(1,len(row)-2,2):
                 self.graph[self.cities.index(row[0])][self.cities.index(row[i])] = int(row[i+1])
 
-        if ILI:
-            d = np.array(data)[1:,1:].astype(float) # first column has date
+        # Slice the data into training and test sets, or into folds.
+        if data_type == DataType.DATA_WITH_FLOATS:
+            d = np.array(data)[1:,1:].astype(float) # first column has date. Why are we also getting rid of the first row?
         else:
             d = np.array(data)[1:,1:].astype(int) # first column has date
+
+        if 'num_folds' in kwargs and 'split' in kwargs:
+            raise ValueError('Both num_folds and split were passed as arguments, so the slicing method is ambiguous.')
+
         self.partitions = []
-        partition_size = int(math.ceil(len(d)/num_folds))
-        for i in range(num_folds):
-            self.partitions.append(d[(i*partition_size):((i+1)*partition_size),:])
+        if 'num_folds' in kwargs:
+            # Slice data into n folds
+            num_folds = kwargs['num_folds']
+            partition_size = int(math.ceil(len(d)/num_folds))
+            for i in range(num_folds):
+                self.partitions.append(d[(i*partition_size):((i+1)*partition_size),:])
+        elif 'split' in kwargs:
+            # Slice data in train and test sets
+            split = kwargs['split']
+            trainset_size = int(math.ceil((1.0 - split) * len(d)))
+            self.partitions.append(d[:trainset_size,:])
+            self.partitions.append(d[trainset_size:,:])
 
 class UpdateRule:
     """Constructs an update function, which can be called like any normal Python function.
@@ -76,13 +107,13 @@ class UpdateRule:
     def make_weights(self, magnitude):
         return magnitude * np.random.rand(self.neighborhood_size + 2) - float(magnitude) / 2 # +1 for self, +1 for bias
 
-    def perturb(self, amount):
+    def mutate(self, amount):
         offset = self.make_weights(amount)
         return UpdateRule(self.neighborhood_size, self.weights + offset)
 
     def perturb_single_weight(self, amount):
         # TODO
-        # Choose a random index and perturb it
+        # Choose a random index and mutate it
         index = random.randint(0, len(self.weights) - 1)
 
 
@@ -121,7 +152,7 @@ def evaluate_rule(rule, data):
         debug_errors.append(error)
     # print 'cumulative errors: %s' % debug_errors
     return error
-    
+
 """Calculate the error of a given CA node on a set of training data and plot values
 Arguments:
 rule -- an instance of UpdateRule
@@ -151,10 +182,10 @@ def plot_error(rule, data, city_index):
     plt.show()
 
 def main(args):
-    
-    data = Data(args.input_file, args.neighbor_file, args.split)
+    # Create and run a CA.
+    data = Data(args.input_file, args.neighbor_file, args.split, data_type = DATA_WITH_FLOATS)
     rule = UpdateRule(args.neighbor)
-    evaluate_rule(rule, data.train_data, args.batch)
+    evaluate_rule(rule, data.partitions[0], args.batch)
 
 def make_argument_parser():
     parser = argparse.ArgumentParser()
@@ -162,7 +193,7 @@ def make_argument_parser():
             help='Specify the path/filename of the input data.')
     parser.add_argument('neighbor_file', type = str,
             help='Specify the path/filename of the neighbor data.')
-    parser.add_argument('-s', '--split', type = float, default = 0.3, 
+    parser.add_argument('-s', '--split', type = float, default = 0.3,
             help = 'Specify the portion of data to use as testset, e.g. 0.3.')
     parser.add_argument('-n', '--neighbor', type = int, default = 2,
             help = 'Specify the number of neighbors to use.')

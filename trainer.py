@@ -5,6 +5,10 @@ class Trainer:
     def train(self, intervals, graph):
         pass
 
-def basic_train(input_file, split, trainer):
-    data = Data(input_file, split)
-    trainer.train([data.train_data])
+def basic_train(trainer, input_file, neighbor_file, split):
+    data = Data(input_file, neighbor_file, split, split=split)
+    trainer.train([data.partitions[0]], data.graph)
+
+def cross_validation_train():
+    # TODO - Leland
+    pass

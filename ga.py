@@ -8,11 +8,21 @@ POPULATION_SIZE = 100
 SURVIVOR_RATIO = 0.2 # on average 20% of the population survives
 HUGE_NUMBER = 1e20
 
+def random_lerp(a, b):
+    """Computes a new value between a and b.
+
+    Arguments:
+    a -- a float
+    b -- a float
+    """
+    rand = random.random()
+    return rand * a + (1 - rand) * b
+
 def make_ga_argument_parser():
     parser = make_ca_argument_parser()
     parser.add_argument('-g', '--generations', type = int, default = 5,
             help = 'Specify the number of generations to train for.')
-    parser.add_argument('-p', '--perturb', type = float, default = 0.1,
+    parser.add_argument('-m', '--mutate', type = float, default = 0.1,
             help = 'Specify the amount to mutate the weights by each generation.')
     return parser
 
@@ -51,7 +61,7 @@ def evaluate_on_intervals(rule, intervals):
 class GeneticTrainer:
     def __init__(self, args):
         self.neighborhood_size = args.neighbor
-        self.perturb_amount = args.perturb
+        self.mutate_amount = args.mutate
         self.n_generations = args.generations
 
     def train(self, intervals, graph):
@@ -95,12 +105,12 @@ class GeneticTrainer:
                 print 'ah geez, no one lived ):'
                 new_population.append(population[0])
 
-            # Create next generation by perturbing the best performers.
+            # Create next generation by mutating the best performers.
             generation_size = len(new_population)
             for i in range(POPULATION_SIZE - generation_size):
                 # Cycle through survivors to be parents
                 parent = new_population[i % generation_size]
-                new_population.append(parent.perturb(self.perturb_amount)) # TODO consider making this smaller throughout training
+                new_population.append(parent.mutate(self.mutate_amount)) # TODO consider making this smaller throughout training
 
             population = new_population
 
@@ -113,6 +123,10 @@ def parse_args():
     return parser.parse_args()
 
 if __name__ == '__main__':
+    # Create a genetic trainer
     args = parse_args()
     trainer = GeneticTrainer(args)
-    basic_train(args.input_file, args.split, trainer)
+
+    # Train it with a train-test split.
+    # TODO add support for cross validation
+    basic_train(trainer, args.input_file, args.neighbor_file, args.split)
