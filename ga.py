@@ -1,4 +1,4 @@
-from ca import make_argument_parser as make_ca_argument_parser, Data, UpdateRule, CellularAutomaton, evaluate_rule
+from ca import make_argument_parser as make_ca_argument_parser, Data, UpdateRule, CellularAutomaton, evaluate_rule, DataType
 from trainer import Trainer, basic_train
 import random
 import numpy as np
@@ -126,7 +126,8 @@ if __name__ == '__main__':
     # Create a genetic trainer
     args = parse_args()
     trainer = GeneticTrainer(args)
+    data = Data.create_from_args(args)
 
     # Train it with a train-test split.
     # TODO add support for cross validation
-    basic_train(trainer, args.input_file, args.neighbor_file, args.split)
+    basic_train(trainer, data)

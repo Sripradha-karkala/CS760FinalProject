@@ -25,6 +25,14 @@ class Data:
     partitions - A list of matrices representing slices of data.
     """
 
+    @staticmethod
+    def create_from_args(args):
+        """Factory method for convenience. Pass it the args object and it return a Data object."""
+        if 'split' in args:
+            return Data(args.input_file, args.neighbor_file, DataType.DATA_WITH_INTS, split=args.split)
+        else:
+            return Data(args.input_file, args.neighbor_file, DataType.DATA_WITH_INTS, num_folds=args.num_folds)
+
     """Constructor: Given a CSV file of flu rates, create a list of matrices for training and testing.
 
     Arguments:
@@ -74,6 +82,7 @@ class Data:
 
         self.partitions = []
         if 'num_folds' in kwargs:
+
             # Slice data into n folds
             num_folds = kwargs['num_folds']
             partition_size = int(math.ceil(len(d)/num_folds))
@@ -183,9 +192,9 @@ def plot_error(rule, data, city_index):
 
 def main(args):
     # Create and run a CA.
-    data = Data(args.input_file, args.neighbor_file, args.split, data_type = DATA_WITH_FLOATS)
+    data = Data.create_from_args(args)
     rule = UpdateRule(args.neighbor)
-    evaluate_rule(rule, data.partitions[0], args.batch)
+    evaluate_rule(rule, data.partitions[0])
 
 def make_argument_parser():
     parser = argparse.ArgumentParser()
@@ -193,12 +202,15 @@ def make_argument_parser():
             help='Specify the path/filename of the input data.')
     parser.add_argument('neighbor_file', type = str,
             help='Specify the path/filename of the neighbor data.')
-    parser.add_argument('-s', '--split', type = float, default = 0.3,
-            help = 'Specify the portion of data to use as testset, e.g. 0.3.')
+
+    training_group = parser.add_mutually_exclusive_group()
+    training_group.add_argument('-s', '--split', type = float, default = 0.3,
+            help = 'The proportion of data to use as testset, e.g. 0.3., in train/test training.')
+    training_group.add_argument('-f', '--num_folds', type = int,
+            help = 'The number of divisions of data to use in cross validation training.')
+
     parser.add_argument('-n', '--neighbor', type = int, default = 2,
             help = 'Specify the number of neighbors to use.')
-    parser.add_argument('-b', '--batch', type = int, default = 2,
-            help = 'Specify the size of the data window in a batch.')
     return parser
 
 def parse_args():
