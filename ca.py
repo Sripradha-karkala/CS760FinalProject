@@ -99,6 +99,7 @@ class UpdateRule:
     """Constructs an update function, which can be called like any normal Python function.
     This represents a point in the parameter space of the CA.
     Arguments:
+    [TODO::Sripradha add] graph -- a numpy array graph where []
     [TODO remove] neighborhood_size -- the number of neighbors of a cell
     weights (optional) -- an weight matrix
     """

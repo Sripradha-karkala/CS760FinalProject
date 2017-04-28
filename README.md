@@ -1,6 +1,14 @@
 # CS760FinalProject
 Epidemic prediction using cellular automata
 
+Team:
+```
+lbhyman@wisc.edu
+skarkala@cs.wisc.edu
+dlee324@wisc.edu
+jawarner2@wisc.edu
+```
+
 Run genetic trainer
 ```python ga.py smallData.csv CA_Graph_Input.csv```
 

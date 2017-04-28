@@ -4,8 +4,10 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 
-POPULATION_SIZE = 100
-SURVIVOR_RATIO = 0.2 # on average 20% of the population survives
+NUM_POPULATION = 100
+NUM_KEPT = 20 # keep this many for the next generation
+MUTATION_RATE = 0.2 # the proportion of chromosomes that are mutated
+
 HUGE_NUMBER = 1e20
 
 def random_lerp(a, b):
@@ -26,9 +28,15 @@ def make_ga_argument_parser():
             help = 'Specify the amount to mutate the weights by each generation.')
     return parser
 
-# Comment or uncommont to change the pruning strategy
-USE_SELECTION_STRATEGY_A = True
-# USE_SELECTION_STRATEGY_A = False
+def get_min_k(k, objects, scores):
+    """Return the k objects with the lowest scores.
+
+    Arguments:
+    objects - a list
+    scores - a list of numbers
+    """
+    # Believe in the one-liner!
+    return [y[1] for y in sorted(zip(scores, objects), key=lambda x: x[0])][0:k]
 
 def plot_timeseries(values):
     values_1 = [v[0] for v in values]
@@ -65,49 +73,44 @@ class GeneticTrainer:
         self.n_generations = args.generations
 
     def train(self, intervals, graph):
+        """Training a GA uses this algorithm:
+        1. Generate an initial population of random-valued classifiers
+        2. Repeat until convergence:
+            a. Evaluate the fitness of all models
+            b. Select the best N_keep models
+            c. Use crossover to generate (N_pop - N_keep) new models
+            d. Apply a chance to mutate to all models"""
         # Initialize search at cells with random parameters
-        population = [make_random_rule(self.neighborhood_size) for _ in range(POPULATION_SIZE)]
+        population = [make_random_rule(self.neighborhood_size) for _ in range(NUM_POPULATION)]
 
         # Iterate through generations:
         history = []
         for k in range(self.n_generations):
             print '== begin generation %s ==' % k
-            # Evaluate every CA in the population
+            # Evaluate the fitness of every CA in the population
             evaluations = []
             for update_rule in population:
                 try:
                     evaluations.append(evaluate_on_intervals(update_rule, intervals))
                 except OverflowError:
-                    # Just append a really big weight if the CA is broken
+                    # If the CA is broken, assign it a really big error
                     evaluations.append(HUGE_NUMBER)
 
-            # Calculate the best and average error over this generation
+            # Track the best and average error over this generation
+            error_mean = float(sum(evaluations)) / len(evaluations)
+            error_min = min(evaluations)
+            print 'errors: best %s, error_mean %s' % (error_min, error_mean)
+            history.append((error_min, error_mean))
 
-            average = float(sum(evaluations)) / len(evaluations)
-            best_index = argmin(evaluations)
-            if USE_SELECTION_STRATEGY_A:
-                new_population = [population[best_index]]
-            print 'errors: best %s, average %s' % (evaluations[best_index], average)
-            history.append((evaluations[best_index], average))
+            # Select the best N_keep models for the new generation
+            new_population = get_min_k(NUM_KEPT, population, evaluations)
 
-            # Prune population according to probability of survival
-            # TODO is inverse error a good fitness?
-            if not USE_SELECTION_STRATEGY_A:
-                fitnesses = [1/float(error) if error != 0 else 10000 for error in evaluations]
-                sum_fitness = sum(fitnesses)
-                new_population = []
-                for update_rule, fitness in zip(population, fitnesses):
-                    # Probability of success is fraction of fitness of total
-                    if float(fitness) / sum_fitness > random.random() * SURVIVOR_RATIO:
-                        new_population.append(update_rule)
-
-            if len(new_population) == 0:
-                print 'ah geez, no one lived ):'
-                new_population.append(population[0])
+            # [TODO] Crossover the survivors to make the new generation
 
             # Create next generation by mutating the best performers.
+            # [TODO] uniform mutation rate
             generation_size = len(new_population)
-            for i in range(POPULATION_SIZE - generation_size):
+            for i in range(NUM_POPULATION - generation_size):
                 # Cycle through survivors to be parents
                 parent = new_population[i % generation_size]
                 new_population.append(parent.mutate(self.mutate_amount)) # TODO consider making this smaller throughout training
