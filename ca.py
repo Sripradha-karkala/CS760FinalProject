@@ -29,9 +29,9 @@ class Data:
     def create_from_args(args):
         """Factory method for convenience. Pass it the args object and it return a Data object."""
         if 'split' in args:
-            return Data(args.input_file, args.neighbor_file, DataType.DATA_WITH_INTS, split=args.split)
+            return Data(args.input_file, args.neighbor_file, DataType.DATA_WITH_FLOATS, split=args.split)
         else:
-            return Data(args.input_file, args.neighbor_file, DataType.DATA_WITH_INTS, num_folds=args.num_folds)
+            return Data(args.input_file, args.neighbor_file, DataType.DATA_WITH_FLOATS, num_folds=args.num_folds)
 
     """Constructor: Given a CSV file of flu rates, create a list of matrices for training and testing.
 
@@ -125,8 +125,6 @@ class UpdateRule:
         # TODO
         # Choose a random index and mutate it
         index = random.randint(0, len(self.weights) - 1)
-
-
 
 class CellularAutomaton:
     """Given an update rule an initial values, the CA can repeatedly update its own state.
