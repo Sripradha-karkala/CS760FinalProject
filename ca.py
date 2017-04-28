@@ -44,7 +44,7 @@ class Data:
     num_folds -- If this is provided, the data will be divided into cross validation folds.
     split -- If this is provided, then this proportion of data will be put in the first partition.
     """
-    def __init__(self, file_name, neighbor_file, data_type, **kwargs):
+    def __init__(self, file_name, neighbor_file, data_type, num_folds = None, split = None):
 
         with open(file_name) as input_file:
             csv.reader(input_file, delimiter = ',')
@@ -71,26 +71,26 @@ class Data:
             for i in range(1,len(row)-2,2):
                 self.graph[self.cities.index(row[0])][self.cities.index(row[i])] = int(row[i+1])
 
-        # Slice the data into training and test sets, or into folds.
+        # Process the data list into a numpy array
         if data_type == DataType.DATA_WITH_FLOATS:
             d = np.array(data)[1:,1:].astype(float) # first column has date. Why are we also getting rid of the first row?
         else:
             d = np.array(data)[1:,1:].astype(int) # first column has date
 
-        if 'num_folds' in kwargs and 'split' in kwargs:
+        # Slice the data into training and test sets, or into folds.
+        if num_folds is not None and split is not None:
             raise ValueError('Both num_folds and split were passed as arguments, so the slicing method is ambiguous.')
 
         self.partitions = []
-        if 'num_folds' in kwargs:
+        if num_folds is not None:
 
             # Slice data into n folds
-            num_folds = kwargs['num_folds']
             partition_size = int(math.ceil(len(d)/num_folds))
             for i in range(num_folds):
-                self.partitions.append(d[(i*partition_size):((i+1)*partition_size),:])
-        elif 'split' in kwargs:
+                fold = d[(i*partition_size):((i+1)*partition_size), :]
+                self.partitions.append(fold)
+        elif split is not None:
             # Slice data in train and test sets
-            split = kwargs['split']
             trainset_size = int(math.ceil((1.0 - split) * len(d)))
             self.partitions.append(d[:trainset_size,:])
             self.partitions.append(d[trainset_size:,:])
