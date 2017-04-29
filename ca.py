@@ -117,14 +117,27 @@ class UpdateRule:
     def make_weights(self, magnitude):
         return magnitude * np.random.rand(self.neighborhood_size + 2) - float(magnitude) / 2 # +1 for self, +1 for bias
 
-    def mutate(self, amount):
-        offset = self.make_weights(amount)
-        return UpdateRule(self.neighborhood_size, self.weights + offset)
+    def crossover(self, update_rule):
+        """Create a new update rule which is blended between this one and the one passed."""
+        # [TODO] Allow not all variables to be blended
+        child_weights = np.zeros(self.weights.shape)
 
-    def perturb_single_weight(self, amount):
-        # TODO
-        # Choose a random index and mutate it
-        index = random.randint(0, len(self.weights) - 1)
+        # Work with 1d arrays for generality
+        parent_a_flat = self.weights.flat
+        parent_b_flat = update_rule.weights.flat
+        child_flat = child_weights.flat
+
+        for i in range(len(child_flat)):
+            blend = random.random()
+            child_flat[i] = blend * parent_a_flat[i] + (1 - blend) * parent_b_flat[i]
+        return UpdateRule(self.neighborhood_size, child_weights)
+
+    def mutate(self, rate, eta):
+        """Change a percentage of the weights by eta"""
+        weights = self.weights.flat
+        for i in range(len(weights)):
+            if random.random() < rate:
+                weights[i] += (random.random() - 0.5) * eta
 
 class CellularAutomaton:
     """Given an update rule an initial values, the CA can repeatedly update its own state.
@@ -204,9 +217,9 @@ def make_argument_parser():
 
     training_group = parser.add_mutually_exclusive_group()
     training_group.add_argument('-s', '--split', type = float, default = 0.3,
-            help = 'The proportion of data to use as testset, e.g. 0.3., in train/test training.')
+            help = 'Split data into training and test set, and use the specified proportion of data for the training set.')
     training_group.add_argument('-f', '--num_folds', type = int,
-            help = 'The number of divisions of data to use in cross validation training.')
+            help = 'Split data into multiple folds and train using cross validation.')
 
     parser.add_argument('-n', '--neighbor', type = int, default = 2,
             help = 'Specify the number of neighbors to use.')

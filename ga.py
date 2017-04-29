@@ -5,8 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 NUM_POPULATION = 100
-NUM_KEPT = 20 # keep this many for the next generation
+NUM_KEPT = 20 # keep this many for the next generation. must be even.
 MUTATION_RATE = 0.2 # the proportion of chromosomes that are mutated
+MUTATION_DISTANCE = 0.01
 
 HUGE_NUMBER = 1e20
 
@@ -105,15 +106,16 @@ class GeneticTrainer:
             # Select the best N_keep models for the new generation
             new_population = get_min_k(NUM_KEPT, population, evaluations)
 
-            # [TODO] Crossover the survivors to make the new generation
+            # Crossover the survivors to make the new generation
+            random.shuffle(new_population)
+            for i in range(0, len(new_population), 2):
+                parent_a = new_population[i]
+                parent_b = new_population[i + 1]
+                new_population.append(parent_a.crossover(parent_b))
 
             # Create next generation by mutating the best performers.
-            # [TODO] uniform mutation rate
-            generation_size = len(new_population)
-            for i in range(NUM_POPULATION - generation_size):
-                # Cycle through survivors to be parents
-                parent = new_population[i % generation_size]
-                new_population.append(parent.mutate(self.mutate_amount)) # TODO consider making this smaller throughout training
+            for model in population:
+                model.mutate(MUTATION_RATE, MUTATION_DISTANCE)
 
             population = new_population
 
