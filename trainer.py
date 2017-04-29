@@ -1,4 +1,4 @@
-from ca import Data
+from ca import Data, plot_error
 
 class Trainer:
     """Abstract trainer class."""
@@ -9,8 +9,13 @@ class Trainer:
 
 def basic_train(trainer, data):
     # Assume that data comes in a train / test split. Train on the first partition.
-    trainer.train([data.partitions[0]], data.graph)
+    best_rule = trainer.train([data.partitions[0]], data.graph)
+
     # [TODO] evaluate on the second
+
+    plot_error(best_rule, data.partitions[0], 0)
+    plot_error(best_rule, data.partitions[0], 1)
+    plot_error(best_rule, data.partitions[0], 2)
 
 def cross_validation_train(trainer, data):
     """Train k models on k different splits of data.partitions.
