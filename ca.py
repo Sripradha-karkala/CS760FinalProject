@@ -96,26 +96,52 @@ class Data:
             self.partitions.append(d[trainset_size:,:])
 
 class UpdateRule:
-    """Constructs an update function, which can be called like any normal Python function.
+    """An update function can be called like any normal Python function.
     This represents a point in the parameter space of the CA.
-    Arguments:
-    [TODO::Sripradha add] graph -- a numpy array graph where []
-    [TODO remove] neighborhood_size -- the number of neighbors of a cell
-    weights (optional) -- an weight matrix
+
+    Attributes:
+    weights -- a numpy array with d rows and (2d + 1) columns, where d is the dimension of a cell value.
+                The first d columns are weights for the cell, the next d are weights for the neighbors, and the last one is bias.
+    dimension -- d; each cell value is a d-length vector.
     """
+
+    dimension = 2
+
     def __init__(self, neighborhood_size, weights = None):
+        """Initialize a random update rule, or pass an update rule matrix.
+
+        Arguments:
+        [TODO::Sripradha add] graph -- a numpy array graph where graph[i][j] is the weight from cells at positions i and j.
+        [TODO::Sripradha remove] neighborhood_size -- the number of neighbors of a cell
+        weights (optional) -- an weight matrix
+        """
         self.neighborhood_size = neighborhood_size
         if weights is None:
             self.weights = self.make_weights(1)
         else:
             self.weights = weights
 
-    def __call__(self, cell_value, neighbor_values):
-        return self.weights[0] * cell_value \
-            + self.weights[1:-1].dot(neighbor_values) + self.weights[-1]
+    def __call__(self, cell_index, cell_value, neighbor_indices, neighbor_values):
+        """Calculate f(x, N(x)).
+        """
+        z = self.get_z(cell_index, neighbor_indices, neighbor_values)
+
+        # self, neighbors, bias
+        return self.weights[:, 0:self.dimension].dot(cell_value) \
+            + self.weights[:, self.dimension:2*self.dimension].dot(z) \
+            + self.weights[:, 2*self.dimension:].flatten()
+
+    def get_z(self, cell_index, neighbor_indices, neighbor_values):
+        """Return the weighted sum of the neighbor values.
+        TODO::Sripradha -- Use the graph"""
+        # For now assume all weights are one
+        return 1*neighbor_values[0] + 1*neighbor_values[1]
 
     def make_weights(self, magnitude):
-        return magnitude * np.random.rand(self.neighborhood_size + 2) - float(magnitude) / 2 # +1 for self, +1 for bias
+        """Create a weights matrix with the given average values."""
+        n_rows = self.dimension
+        n_cols = 2 * self.dimension + 1
+        return magnitude * (np.random.rand(n_rows, n_cols) - 0.5)
 
     def crossover(self, update_rule):
         """Create a new update rule which is blended between this one and the one passed."""
@@ -140,24 +166,44 @@ class UpdateRule:
                 weights[i] += (random.random() - 0.5) * eta
 
 class CellularAutomaton:
-    """Given an update rule an initial values, the CA can repeatedly update its own state.
-    Arguments:
-    initial_values -- an array of cell values at time 0
-    update_rule -- an instance of UpdateRule to update the cell values"""
+    """Given an update rule an initial cell values, the CA can repeatedly update its own state.
+
+    Attributes:
+    cells -- a numpy array where cells[i][j] represents the jth dimension of the ith cell.
+    """
+
+    # TODO - don't define this twice in UpdateRule
+    dimension = 2
+
     def __init__(self, initial_values, update_rule):
-        self.values = np.copy(initial_values)
+        """Initialze a CA. The first dimension will be set to the initial_values, and all other dimensions are set to 0.
+
+        Arguments:
+        initial_values -- an array of cell values at time 0
+        update_rule -- an instance of UpdateRule to update the cell values"""
+        self.cells = np.zeros((len(initial_values), self.dimension))
+        self.cells[:, 0] = np.copy(initial_values)
         self.update_rule = update_rule
 
     def get_neighbors(self, i):
-        return np.append(self.values[:i], self.values[i+1:])
+        """Return a list of indices of the cells with edges to the cell index i"""
+        # Assume 1D grid of cells.
+        # TODO::Sripradha - Use the graph here
+        if i == 0:
+            return [i+1, len(self.cells) - 1]
+        elif i == len(self.cells) - 1:
+            return [0, len(self.cells) - 2] # remark: this breaks if there's only one cell
+        else:
+            return [i-1, i+1]
 
     def update(self):
-        for i in range(len(self.values)):
+        for i in range(len(self.cells)):
             neighbors = self.get_neighbors(i)
-            self.values[i] = self.update_rule(self.values[i], neighbors)
+            # print self.update_rule(i, self.cells[i], neighbors, self.cells[neighbors])
+            self.cells[i] = self.update_rule(i, self.cells[i], neighbors, self.cells[neighbors])
 
     def get_values(self):
-        return self.values
+        return self.cells
 
 """Calculate the error of a given CA on a set of training data
 Arguments:
@@ -169,7 +215,9 @@ def evaluate_rule(rule, data):
     debug_errors = []
     for t in range(1, len(data)):
         ca.update()
-        error += sum(abs(ca.get_values() - data[t]))
+        actual = ca.get_values()[:, 0].flatten()
+        desired = data[t]
+        error += sum(abs(actual - desired)) # TODO use squared error
         debug_errors.append(error)
     # print 'cumulative errors: %s' % debug_errors
     return error
