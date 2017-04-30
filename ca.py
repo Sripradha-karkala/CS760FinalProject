@@ -117,7 +117,7 @@ class UpdateRule:
         """
         self.neighborhood_size = neighborhood_size
         if weights is None:
-            self.weights = self.make_weights(1)
+            self.weights = self.make_weights(2)
         else:
             self.weights = weights
 
@@ -134,14 +134,14 @@ class UpdateRule:
     def get_z(self, cell_index, neighbor_indices, neighbor_values):
         """Return the weighted sum of the neighbor values.
         TODO::Sripradha -- Use the graph"""
-        # For now assume all weights are one
-        return 1*neighbor_values[0] + 1*neighbor_values[1]
+        # For now assume all weights are one, and there are two neighbors
+        return (1*neighbor_values[0] + 1*neighbor_values[1]) / float(len(neighbor_indices))
 
     def make_weights(self, magnitude):
-        """Create a weights matrix with the given average values."""
+        """Create a weights matrix uniformly distributed over -magnitude, magnitude."""
         n_rows = self.dimension
         n_cols = 2 * self.dimension + 1
-        return magnitude * (np.random.rand(n_rows, n_cols) - 0.5)
+        return 2 * magnitude * (np.random.rand(n_rows, n_cols) - 0.5)
 
     def crossover(self, update_rule):
         """Create a new update rule which is blended between this one and the one passed."""
@@ -181,7 +181,7 @@ class CellularAutomaton:
         Arguments:
         initial_values -- an array of cell values at time 0
         update_rule -- an instance of UpdateRule to update the cell values"""
-        self.cells = np.zeros((len(initial_values), self.dimension))
+        self.cells = np.ones((len(initial_values), self.dimension))
         self.cells[:, 0] = np.copy(initial_values)
         self.update_rule = update_rule
 
@@ -199,7 +199,6 @@ class CellularAutomaton:
     def update(self):
         for i in range(len(self.cells)):
             neighbors = self.get_neighbors(i)
-            # print self.update_rule(i, self.cells[i], neighbors, self.cells[neighbors])
             self.cells[i] = self.update_rule(i, self.cells[i], neighbors, self.cells[neighbors])
 
     def get_values(self):
@@ -228,22 +227,25 @@ rule -- an instance of UpdateRule
 data -- a matrix of CA values, where data[t] is an array of all cells values at time t
 city_index -- index of the node in question"""
 def plot_error(rule, data, city_index):
+    print 'Final weights:\n%s' % rule.weights
     ca = CellularAutomaton(data[0], rule)
-    output = []
+    outputs = []
     desired_output = []
     error = []
-    # Calculate output and error for each time step
+    # Calculate outputs and error for each time step
     for t in range(1, len(data)):
         ca.update()
-        current_output = ca.get_values()[city_index]
+        current_output = np.copy(ca.get_values()[city_index])
         current_desired_output = data[t][city_index]
-        current_error = abs(current_output - current_desired_output)
-        output.append(current_output)
+        current_error = abs(current_output[0] - current_desired_output)
+        outputs.append(current_output)
         desired_output.append(current_desired_output)
         error.append(current_error)
 
     # Plot output, desired output, and error
-    plt.plot(output, label='output')
+    for i in range(len(outputs[0])):
+        output = [o[i] for o in outputs]
+        plt.plot(output, label='output_%s' % i)
     plt.plot(desired_output, label='desired')
     plt.plot(error, label='error')
     plt.legend()
