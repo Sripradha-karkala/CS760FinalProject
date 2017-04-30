@@ -9,12 +9,18 @@ dlee324@wisc.edu
 jawarner2@wisc.edu
 ```
 
-Run genetic trainer
+# Instructions
+
+How to run genetic trainer
 ```python ga.py smallData.csv CA_Graph_Input.csv```
 
-Run genetic trainer with four-fold cross-fold validation:
+How to run genetic trainer with four-fold cross-fold validation:
 ```python ga.py smallData.csv CA_Graph_Input.csv -f 4```
 
+How to run examples:
+```python examples.py smallData.csv CA_Graph_Input.csv -e 0```
+
+# TODO
 - [ ] Sripradha: Under Data class in ca.py, create neighborhood graph (Jaime sent you an email)
 - [ ] Leland: Visualize ga progress, other fancy pretty things
 - [ ] Erika: Update README with usage & expected input information

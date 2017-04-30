@@ -5,9 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 NUM_POPULATION = 100
-NUM_KEPT = 20 # keep this many for the next generation. must be even.
-MUTATION_RATE = 0.2 # the proportion of chromosomes that are mutated
-MUTATION_DISTANCE = 0.01
+NUM_KEPT = 40 # keep this many for the next generation. must be even.
+MUTATION_RATE = 0.20 # the proportion of chromosomes that are mutated
+MUTATION_DISTANCE = 0.1
 
 HUGE_NUMBER = 1e20
 
@@ -83,7 +83,6 @@ class GeneticTrainer:
             d. Apply a chance to mutate to all models"""
         # Initialize search at cells with random parameters
         population = [make_random_rule(self.neighborhood_size) for _ in range(NUM_POPULATION)]
-
         # Iterate through generations:
         history = []
         for k in range(self.n_generations):
@@ -104,22 +103,25 @@ class GeneticTrainer:
             history.append((error_min, error_mean))
 
             # Select the best N_keep models for the new generation
-            new_population = get_min_k(NUM_KEPT, population, evaluations)
+            survivors = get_min_k(NUM_KEPT, population, evaluations)
 
             # Crossover the survivors to make the new generation
-            random.shuffle(new_population)
-            for i in range(0, len(new_population), 2):
-                parent_a = new_population[i]
-                parent_b = new_population[i + 1]
-                new_population.append(parent_a.crossover(parent_b))
+            random.shuffle(survivors)
+            children = []
+            for j in range(NUM_POPULATION - NUM_KEPT):
+                i = (j * 2) % NUM_KEPT
+                parent_a = survivors[i]
+                parent_b = survivors[i + 1]
+                children.append(parent_a.crossover(parent_b))
+
+            population = survivors + children
 
             # Create next generation by mutating the best performers.
             for model in population:
                 model.mutate(MUTATION_RATE, MUTATION_DISTANCE)
 
-            population = new_population
 
-        plot_timeseries(history)
+        # plot_timeseries(history)
         best_index = argmin(evaluations)
         return population[best_index]
 
