@@ -5,14 +5,36 @@ from ca import make_argument_parser as make_ca_argument_parser, Data, UpdateRule
 import random
 import numpy as np
 
-N_EXAMPLES = 1
+N_EXAMPLES = 2
 
 def make_example_0(neighbor):
+    """ Constant example """
     dimension = 2
     n_rows = dimension
     n_cols = 2 * dimension + 1
     weights = np.zeros((n_rows, n_cols))
-    return UpdateRule(args.neighbor, weights)
+
+    # Columns 0 and 1 are weights for the self-cell
+    weights[0, 0] = weights[1, 1] = 1
+    weights[1, -1] = 10
+    return UpdateRule(neighbor, weights)
+
+def make_example_1(neighbor):
+    """ Sample oscillator """
+    dimension = 2
+    n_rows = dimension
+    n_cols = 2 * dimension + 1
+    weights = np.zeros((n_rows, n_cols))
+
+    # Rule: weights[i, j] is influence of dimension j on dimension i
+
+    # Columns 0 and 1 are weights for the self-cell
+    weights[0, 0] = weights[1,1] = 1 # exponential decay
+    weights[1, 0] = 0.03
+    weights[0, 1] = -0.03
+    weights[0, -1] = 10
+    weights[1, -1] = -100
+    return UpdateRule(neighbor, weights)
 
 def run_example(args):
     example = args.example
@@ -25,6 +47,8 @@ def run_example(args):
     # Create the update rule for this example
     if example == 0:
         rule = make_example_0(args.neighbor)
+    elif example == 1:
+        rule = make_example_1(args.neighbor)
 
     # Plot the results
     plot_error(rule, data.partitions[0], 0)
