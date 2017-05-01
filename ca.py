@@ -5,6 +5,7 @@ import sys
 import math
 import argparse
 import matplotlib.pyplot as plt
+from scipy.stats.stats import pearsonr
 
 a = np.array([1.,2.,3.])
 b = np.array([2.,4.,6.])
@@ -20,7 +21,6 @@ class DataType:
 
 class Data:
     """Loads data from files. Represents time-series and graph data from a CA simulation.
-
     Attributes:
     partitions - A list of matrices representing slices of data.
     """
@@ -34,12 +34,10 @@ class Data:
             return Data(args.input_file, args.neighbor_file, DataType.DATA_WITH_FLOATS, num_folds=args.num_folds)
 
     """Constructor: Given a CSV file of flu rates, create a list of matrices for training and testing.
-
     Arguments:
     file_name -- CSV flu rates file
     neighbor_file -- File containing cities and weights
     num_folds -- number of folds to partition
-
     Keyword arguments (kwargs):
     num_folds -- If this is provided, the data will be divided into cross validation folds.
     split -- If this is provided, then this proportion of data will be put in the first partition.
@@ -98,7 +96,6 @@ class Data:
 class UpdateRule:
     """An update function can be called like any normal Python function.
     This represents a point in the parameter space of the CA.
-
     Attributes:
     weights -- a numpy array with d rows and (2d + 1) columns, where d is the dimension of a cell value.
                 The first d columns are weights for the cell, the next d are weights for the neighbors, and the last one is bias.
@@ -109,7 +106,6 @@ class UpdateRule:
 
     def __init__(self, neighborhood_size, weights = None):
         """Initialize a random update rule, or pass an update rule matrix.
-
         Arguments:
         [TODO::Sripradha add] graph -- a numpy array graph where graph[i][j] is the weight from cells at positions i and j.
         [TODO::Sripradha remove] neighborhood_size -- the number of neighbors of a cell
@@ -167,7 +163,6 @@ class UpdateRule:
 
 class CellularAutomaton:
     """Given an update rule an initial cell values, the CA can repeatedly update its own state.
-
     Attributes:
     cells -- a numpy array where cells[i][j] represents the jth dimension of the ith cell.
     """
@@ -177,7 +172,6 @@ class CellularAutomaton:
 
     def __init__(self, initial_values, update_rule):
         """Initialze a CA. The first dimension will be set to the initial_values, and all other dimensions are set to 0.
-
         Arguments:
         initial_values -- an array of cell values at time 0
         update_rule -- an instance of UpdateRule to update the cell values"""
@@ -221,13 +215,44 @@ def evaluate_rule(rule, data):
     # print 'cumulative errors: %s' % debug_errors
     return error
 
+"""Generates output from a CA on a dataset
+Arguments:
+rule -- an instance of UpdateRule
+data -- a matrix of CA values, where data[t] is an array of all cells values at time t"""
+def generate_output(rule, data):
+    ca = CellularAutomaton(data[0], rule)
+    output = []
+    output.append(data[0])
+    for t in range(1, len(data)):
+        ca.update()
+        output.append(ca.get_values()[:, 0].flatten())
+    output = np.asarray(output)
+    return output
+
+"""Calculates average pearson correlation across all cities between output values 
+and true values in the dataset
+Arguments:
+rule -- an instance of UpdateRule
+data -- a matrix of CA values, where data[t] is an array of all cells values at time t"""
+def pearson_correlation(rule, data):
+    output = generate_output(rule, data)
+    data = np.asarray(data)
+    num_cities = data.shape[1]
+    city_correlations = []
+    for i in range(num_cities):
+        correlation = pearsonr(data[:,i], output[:,i])
+        print(correlation[0])
+        city_correlations.append(correlation[0])
+    return np.mean(city_correlations)
+    
+    
 """Calculate the error of a given CA node on a set of training data and plot values
 Arguments:
 rule -- an instance of UpdateRule
 data -- a matrix of CA values, where data[t] is an array of all cells values at time t
 city_index -- index of the node in question"""
 def plot_error(rule, data, city_index):
-    print 'Final weights:\n%s' % rule.weights
+    print('Final weights:\n%s' % rule.weights)
     ca = CellularAutomaton(data[0], rule)
     outputs = []
     desired_output = []
