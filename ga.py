@@ -2,12 +2,16 @@ from ca import make_argument_parser as make_ca_argument_parser, Data, UpdateRule
 from trainer import Trainer, basic_train, cross_validation_train
 import random
 import numpy as np
+import math
 import matplotlib.pyplot as plt
 
 NUM_POPULATION = 100
 NUM_KEPT = 40 # keep this many for the next generation. must be even.
 MUTATION_RATE = 0.20 # the proportion of chromosomes that are mutated
 MUTATION_DISTANCE = 0.1
+
+# USE_COSINE_SIMILARITY = True
+USE_COSINE_SIMILARITY = False
 
 HUGE_NUMBER = 1e20
 
@@ -61,10 +65,56 @@ def argmin(l):
             best = l[i]
     return best_i
 
+def predict_values(rule, interval):
+    """Creates a numpy array values, where values[i][j] represents the predicted value of city j at time i"""
+    ca = CellularAutomaton(interval[0], rule)
+    values = np.zeros((len(interval), len(interval[0])))
+    values[0] = interval[0]
+    for t in range(1, len(interval)):
+        ca.update()
+        values[t] = ca.get_values()[:, 0]
+    return values
+
+def cosine_similarity(A, B):
+    # Numerator term
+    numerator = 0.0
+    for a, b in zip(A, B):
+        numerator += a * b
+
+    # Denominator term A
+    denom_a = 0.0
+    for a in A:
+        denom_a += a ** 2
+    denom_a = math.sqrt(denom_a)
+
+    # Denominator term B
+    denom_b = 0.0
+    for b in B:
+        denom_b += b ** 2
+    denom_b = math.sqrt(denom_b)
+
+    return numerator / (denom_a * denom_b)
+
+def evalaute_cosine_similarity(rule, interval):
+    """rule -- Instance of UpdateRule
+    interval -- numpy matrix where interval[i][j] represents the value of city j at time i"""
+    predicted = predict_values(rule, interval)
+
+    # Sum cosine similarities for every city
+    similarity = 0.0
+    for i in range(len(interval[0])):
+        city_values = interval[:, i]
+        predicted_values = predicted[:, i]
+        similarity += cosine_similarity(city_values, predicted_values)
+    return similarity
+
 def evaluate_on_intervals(rule, intervals):
     error = 0.0
     for interval in intervals:
-        error += evaluate_rule(rule, interval)
+        if USE_COSINE_SIMILARITY:
+            error += 1 - evalaute_cosine_similarity(rule, interval)
+        else:
+            error += evaluate_rule(rule, interval)
     return error
 
 class GeneticTrainer:
