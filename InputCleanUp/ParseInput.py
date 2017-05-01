@@ -25,14 +25,15 @@ airports = {}
 cities = {}
 
 # Parse Flu Trends data to produce dictionary of cities
-fluFile = open('Flu_Data.csv',encoding='UTF-8').read()
+fluFile = open('../smallData.csv',encoding='UTF-8').read()
 lines = fluFile.split('\n')
 firstLine = lines[0]
 tokenized = firstLine.split(',')
-for i in range(63,len(tokenized)):
-    name = tokenized[i].split('-')[0]
+for i in range(len(tokenized)-1):
+    name = tokenized[i+1].split('-')[0]
     city = City(name)
     cities[name] = city
+
 
 # Parse Airports File to produce dictionary of airports
 airportFile = open('US_Airports.csv',encoding='UTF-8').read()

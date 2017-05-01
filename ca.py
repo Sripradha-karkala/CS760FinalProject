@@ -107,19 +107,18 @@ class UpdateRule:
 
     dimension = 2
 
-    def __init__(self, neighborhood_size, weights = None):
+    def __init__(self, graph, weights = None):
         """Initialize a random update rule, or pass an update rule matrix.
 
         Arguments:
-        [TODO::Sripradha add] graph -- a numpy array graph where graph[i][j] is the weight from cells at positions i and j.
-        [TODO::Sripradha remove] neighborhood_size -- the number of neighbors of a cell
+        graph: Graph of cities with weights
         weights (optional) -- an weight matrix
         """
-        self.neighborhood_size = neighborhood_size
         if weights is None:
             self.weights = self.make_weights(2)
         else:
             self.weights = weights
+        self.graph = graph
 
     def __call__(self, cell_index, cell_value, neighbor_indices, neighbor_values):
         """Calculate f(x, N(x)).
@@ -133,9 +132,21 @@ class UpdateRule:
 
     def get_z(self, cell_index, neighbor_indices, neighbor_values):
         """Return the weighted sum of the neighbor values.
-        TODO::Sripradha -- Use the graph"""
+        neighbor_values -- a list of 2x1 numpy matrices, or an empty list"""
         # For now assume all weights are one, and there are two neighbors
-        return (1*neighbor_values[0] + 1*neighbor_values[1]) / float(len(neighbor_indices))
+
+        # All the cells which are non-zero are basically neighbours
+
+        z = [0.0 for x in range(2)] 
+        each_neighbor = []
+        for i in range(len(neighbor_indices)):
+            for index in range(len(neighbor_values)):
+                z[index] = z[index] + (self.graph[cell_index][i]*neighbor_values[index])
+
+        for x in range(len(z)):
+            if len(neighbor_indices) != 0:
+                z[x] = z[x] / float(len(neighbor_indices))
+        return z
 
     def make_weights(self, magnitude):
         """Create a weights matrix uniformly distributed over -magnitude, magnitude."""
@@ -156,7 +167,7 @@ class UpdateRule:
         for i in range(len(child_flat)):
             blend = random.random()
             child_flat[i] = blend * parent_a_flat[i] + (1 - blend) * parent_b_flat[i]
-        return UpdateRule(self.neighborhood_size, child_weights)
+        return UpdateRule(self.graph, child_weights)
 
     def mutate(self, rate, eta):
         """Change a percentage of the weights by eta"""
@@ -188,17 +199,19 @@ class CellularAutomaton:
     def get_neighbors(self, i):
         """Return a list of indices of the cells with edges to the cell index i"""
         # Assume 1D grid of cells.
-        # TODO::Sripradha - Use the graph here
-        if i == 0:
-            return [i+1, len(self.cells) - 1]
-        elif i == len(self.cells) - 1:
-            return [0, len(self.cells) - 2] # remark: this breaks if there's only one cell
-        else:
-            return [i-1, i+1]
+        neighbors = []
+        graph = self.update_rule.graph
+        for index in range(len(graph[0])):  # Graph is an adj. matrix, so length will be same
+            if graph[i][index] != 0: # is neighbour
+                neighbors.append(index)
+        return neighbors
 
     def update(self):
         for i in range(len(self.cells)):
             neighbors = self.get_neighbors(i)
+            #print neighbors
+            #print len(self.cells)
+            print self.cells[neighbors]
             self.cells[i] = self.update_rule(i, self.cells[i], neighbors, self.cells[neighbors])
 
     def get_values(self):
@@ -255,7 +268,7 @@ def plot_error(rule, data, city_index):
 def main(args):
     # Create and run a CA.
     data = Data.create_from_args(args)
-    rule = UpdateRule(args.neighbor)
+    rule = UpdateRule(data.graph, args.neighbor)
     evaluate_rule(rule, data.partitions[0])
 
 def make_argument_parser():
