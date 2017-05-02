@@ -64,7 +64,7 @@ class Data:
 
         # Build the graph based on adjacency matrix
         # 0 if no edge exists between two cities
-        self.graph = [[0 for i in self.cities] for j in self.cities]
+        self.graph = np.zeros((len(self.cities), len(self.cities)))
         for row in neighbor_data:
             for i in range(1,len(row)-2,2):
                 self.graph[self.cities.index(row[0])][self.cities.index(row[i])] = int(row[i+1])
@@ -122,6 +122,13 @@ class UpdateRule:
         """
         z = self.get_z(cell_index, neighbor_indices, neighbor_values)
 
+        # print 'BEGIN'
+        # print self.weights[:, 0:self.dimension].dot(cell_value)
+        # print self.weights[:, self.dimension:2*self.dimension], z
+        # print self.weights[:, self.dimension:2*self.dimension].dot(z)
+        # print self.weights[:, 2*self.dimension:].flatten()
+        # print 'END'
+
         # self, neighbors, bias
         return self.weights[:, 0:self.dimension].dot(cell_value) \
             + self.weights[:, self.dimension:2*self.dimension].dot(z) \
@@ -129,20 +136,19 @@ class UpdateRule:
 
     def get_z(self, cell_index, neighbor_indices, neighbor_values):
         """Return the weighted sum of the neighbor values.
+        cell_index -- the index of the target cell
+        neighbor_indices -- a list of indices of source cells
         neighbor_values -- a list of 2x1 numpy matrices, or an empty list"""
-        # For now assume all weights are one, and there are two neighbors
 
         # All the cells which are non-zero are basically neighbours
+        z = np.zeros(2)
+        for neighbor_index, neighbor_value in zip(neighbor_indices, neighbor_values):
+            weight = self.graph[neighbor_index, cell_index]
+            z += weight * neighbor_value
 
-        z = [0.0 for x in range(2)] 
-        each_neighbor = []
-        for i in range(len(neighbor_indices)):
-            for index in range(len(neighbor_values)):
-                z[index] = z[index] + (self.graph[cell_index][i]*neighbor_values[index])
-
-        for x in range(len(z)):
-            if len(neighbor_indices) != 0:
-                z[x] = z[x] / float(len(neighbor_indices))
+        if len(neighbor_indices) != 0:
+            for i in range(len(z)):
+                z[i] /= float(len(neighbor_indices))
         return z
 
     def make_weights(self):
@@ -206,7 +212,7 @@ class CellularAutomaton:
             neighbors = self.get_neighbors(i)
             #print neighbors
             #print len(self.cells)
-            print self.cells[neighbors]
+            # print self.cells[neighbors]
             self.cells[i] = self.update_rule(i, self.cells[i], neighbors, self.cells[neighbors])
 
     def get_values(self):
@@ -243,7 +249,7 @@ def generate_output(rule, data):
     output = np.asarray(output)
     return output
 
-"""Calculates average pearson correlation across all cities between output values 
+"""Calculates average pearson correlation across all cities between output values
 and true values in the dataset
 Arguments:
 rule -- an instance of UpdateRule
@@ -258,8 +264,8 @@ def pearson_correlation(rule, data):
         print(correlation[0])
         city_correlations.append(correlation[0])
     return np.mean(city_correlations)
-    
-    
+
+
 """Calculate the error of a given CA node on a set of training data and plot values
 Arguments:
 rule -- an instance of UpdateRule
@@ -294,7 +300,7 @@ def plot_error(rule, data, city_index):
 def main(args):
     # Create and run a CA.
     data = Data.create_from_args(args)
-    rule = UpdateRule(data.graph, args.neighbor)
+    rule = UpdateRule(data.graph)
     evaluate_rule(rule, data.partitions[0])
 
 def make_argument_parser():

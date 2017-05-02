@@ -10,7 +10,6 @@ np.seterr(all='raise')
 
 NUM_POPULATION = 100
 NUM_KEPT = 40 # keep this many for the next generation. must be even.
-MUTATION_RATE = 0.20 # the proportion of chromosomes that are mutated
 
 # USE_COSINE_SIMILARITY = True
 USE_COSINE_SIMILARITY = False
@@ -31,7 +30,7 @@ def make_ga_argument_parser():
     parser = make_ca_argument_parser()
     parser.add_argument('-g', '--generations', type = int, default = 5,
             help = 'Specify the number of generations to train for.')
-    parser.add_argument('-m', '--mutate', type = float, default = 0.1,
+    parser.add_argument('-m', '--mutate', type = float, default = 0.2,
             help = 'Specify the mutation rate, the proportion of genes which are mutated each generation.')
     return parser
 
@@ -53,8 +52,8 @@ def plot_timeseries(values):
     plt.ylabel('Error')
     plt.show()
 
-def make_random_rule(neighborhood_size):
-    return UpdateRule(neighborhood_size)
+def make_random_rule(graph):
+    return UpdateRule(graph)
 
 def argmin(l):
     if len(l) == 1:
@@ -121,8 +120,7 @@ def evaluate_on_intervals(rule, intervals):
 
 class GeneticTrainer:
     def __init__(self, args):
-        self.neighborhood_size = args.neighbor
-        self.mutate_amount = args.mutate
+        self.mutation_rate = args.mutate
         self.n_generations = args.generations
 
     def train(self, intervals, graph):
@@ -134,7 +132,7 @@ class GeneticTrainer:
             c. Use crossover to generate (N_pop - N_keep) new models
             d. Apply a chance to mutate to all models"""
         # Initialize search at cells with random parameters
-        population = [make_random_rule(self.neighborhood_size) for _ in range(NUM_POPULATION)]
+        population = [make_random_rule(graph) for _ in range(NUM_POPULATION)]
         # Iterate through generations:
         history = []
         for k in range(self.n_generations):
@@ -171,9 +169,17 @@ class GeneticTrainer:
             # Create next generation by mutating the best performers.
             # Elitism: Only mutate the children
             for model in children:
-                model.mutate(MUTATION_RATE)
+                model.mutate(self.mutation_rate)
 
             population = survivors + children
+
+            # Every 100 generations, print the weights.
+            if k % 100 == 0:
+                best_index = argmin(evaluations)
+                best = population[best_index]
+                print
+                print (best.weights)
+                print
 
         # plot_timeseries(history)
         best_index = argmin(evaluations)
