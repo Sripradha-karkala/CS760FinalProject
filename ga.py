@@ -136,7 +136,7 @@ class GeneticTrainer:
         # Iterate through generations:
         history = []
         for k in range(self.n_generations):
-            print '== begin generation %s ==' % k
+            print ('== begin generation %s ==' % k)
             # Evaluate the fitness of every CA in the population
             evaluations = []
             for update_rule in population:
@@ -151,7 +151,7 @@ class GeneticTrainer:
             # Track the best and average error over this generation
             error_mean = float(sum(evaluations)) / len(evaluations)
             error_min = min(evaluations)
-            print 'errors: best %s, error_mean %s' % (error_min, error_mean)
+            print ('errors: best %s, error_mean %s' % (error_min, error_mean))
             history.append((error_min, error_mean))
 
             # Select the best N_keep models for the new generation
