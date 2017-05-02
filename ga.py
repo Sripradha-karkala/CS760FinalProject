@@ -5,10 +5,12 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 
+# We need to catch overflow errors and handle them, instead of just printing.
+np.seterr(all='raise')
+
 NUM_POPULATION = 100
 NUM_KEPT = 40 # keep this many for the next generation. must be even.
 MUTATION_RATE = 0.20 # the proportion of chromosomes that are mutated
-MUTATION_DISTANCE = 0.1
 
 # USE_COSINE_SIMILARITY = True
 USE_COSINE_SIMILARITY = False
@@ -30,7 +32,7 @@ def make_ga_argument_parser():
     parser.add_argument('-g', '--generations', type = int, default = 5,
             help = 'Specify the number of generations to train for.')
     parser.add_argument('-m', '--mutate', type = float, default = 0.1,
-            help = 'Specify the amount to mutate the weights by each generation.')
+            help = 'Specify the mutation rate, the proportion of genes which are mutated each generation.')
     return parser
 
 def get_min_k(k, objects, scores):
@@ -142,9 +144,11 @@ class GeneticTrainer:
             for update_rule in population:
                 try:
                     evaluations.append(evaluate_on_intervals(update_rule, intervals))
-                except OverflowError:
+                except FloatingPointError:
                     # If the CA is broken, assign it a really big error
-                    evaluations.append(HUGE_NUMBER)
+                    evaluations.append(float('inf'))
+                # except KeyboardInterrupt:
+                #     print 'foofoo'
 
             # Track the best and average error over this generation
             error_mean = float(sum(evaluations)) / len(evaluations)
@@ -164,12 +168,12 @@ class GeneticTrainer:
                 parent_b = survivors[i + 1]
                 children.append(parent_a.crossover(parent_b))
 
-            population = survivors + children
-
             # Create next generation by mutating the best performers.
-            for model in population:
-                model.mutate(MUTATION_RATE, MUTATION_DISTANCE)
+            # Elitism: Only mutate the children
+            for model in children:
+                model.mutate(MUTATION_RATE)
 
+            population = survivors + children
 
         # plot_timeseries(history)
         best_index = argmin(evaluations)

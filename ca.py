@@ -105,6 +105,7 @@ class UpdateRule:
     dimension -- d; each cell value is a d-length vector.
     """
 
+    WEIGHT_RANGE = 2 # values are in the interval -2 to 2
     dimension = 2
 
     def __init__(self, neighborhood_size, weights = None):
@@ -117,7 +118,7 @@ class UpdateRule:
         """
         self.neighborhood_size = neighborhood_size
         if weights is None:
-            self.weights = self.make_weights(2)
+            self.weights = self.make_weights()
         else:
             self.weights = weights
 
@@ -137,11 +138,11 @@ class UpdateRule:
         # For now assume all weights are one, and there are two neighbors
         return (1*neighbor_values[0] + 1*neighbor_values[1]) / float(len(neighbor_indices))
 
-    def make_weights(self, magnitude):
-        """Create a weights matrix uniformly distributed over -magnitude, magnitude."""
+    def make_weights(self):
+        """Create a weights matrix uniformly distributed over -WEIGHT_RANGE, WEIGHT_RANGE."""
         n_rows = self.dimension
         n_cols = 2 * self.dimension + 1
-        return 2 * magnitude * (np.random.rand(n_rows, n_cols) - 0.5)
+        return 2 * self.WEIGHT_RANGE * (np.random.rand(n_rows, n_cols) - 0.5)
 
     def crossover(self, update_rule):
         """Create a new update rule which is blended between this one and the one passed."""
@@ -158,12 +159,12 @@ class UpdateRule:
             child_flat[i] = blend * parent_a_flat[i] + (1 - blend) * parent_b_flat[i]
         return UpdateRule(self.neighborhood_size, child_weights)
 
-    def mutate(self, rate, eta):
-        """Change a percentage of the weights by eta"""
+    def mutate(self, rate):
+        """Change a given fraction of the weights to new random values."""
         weights = self.weights.flat
         for i in range(len(weights)):
             if random.random() < rate:
-                weights[i] += (random.random() - 0.5) * eta
+                weights[i] = 2 * self.WEIGHT_RANGE * (random.random() - 0.5)
 
 class CellularAutomaton:
     """Given an update rule an initial cell values, the CA can repeatedly update its own state.
