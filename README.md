@@ -19,6 +19,8 @@ How to run genetic trainer with four-fold cross-fold validation:
 
 How to run examples:
 ```python examples.py smallData.csv CA_Graph_Input_small.csv -e 0```
+```python examples.py smallData.csv CA_Graph_Input_small.csv -e 1```
+```python examples.py smallData.csv CA_Graph_Input_small.csv -e 2```
 
 # TODO
 - [ ] Sripradha: Under Data class in ca.py, create neighborhood graph (Jaime sent you an email)
