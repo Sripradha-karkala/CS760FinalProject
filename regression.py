@@ -57,7 +57,7 @@ class RegressionTrainer(Trainer):
 					x[4] = 1
 					prediction[t][c] = np.dot(x, self.update_rule.weights[0])
 		
-		for city_index in range(1):
+		for city_index in range(len(graph)):
 			city_actual = partition[2:,city_index]
 			city_predicted = prediction[2:,city_index]
 			plt.plot(range(len(partition) -2), city_actual, label = 'Actual')
@@ -95,4 +95,3 @@ if __name__ == '__main__':
 	num_folds = len(data.partitions)
 	trainer.train(data.partitions[:num_folds - 1], data.graph)
 	trainer.test(data.partitions[num_folds - 1], data.graph)
-
