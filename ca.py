@@ -5,6 +5,7 @@ import sys
 import math
 import argparse
 import matplotlib.pyplot as plt
+from scipy.stats.stats import pearsonr
 
 a = np.array([1.,2.,3.])
 b = np.array([2.,4.,6.])
@@ -20,7 +21,6 @@ class DataType:
 
 class Data:
     """Loads data from files. Represents time-series and graph data from a CA simulation.
-
     Attributes:
     partitions - A list of matrices representing slices of data.
     """
@@ -34,12 +34,10 @@ class Data:
             return Data(args.input_file, args.neighbor_file, DataType.DATA_WITH_FLOATS, num_folds=args.num_folds)
 
     """Constructor: Given a CSV file of flu rates, create a list of matrices for training and testing.
-
     Arguments:
     file_name -- CSV flu rates file
     neighbor_file -- File containing cities and weights
     num_folds -- number of folds to partition
-
     Keyword arguments (kwargs):
     num_folds -- If this is provided, the data will be divided into cross validation folds.
     split -- If this is provided, then this proportion of data will be put in the first partition.
@@ -66,7 +64,7 @@ class Data:
 
         # Build the graph based on adjacency matrix
         # 0 if no edge exists between two cities
-        self.graph = [[0 for i in self.cities] for j in self.cities]
+        self.graph = np.zeros((len(self.cities), len(self.cities)))
         for row in neighbor_data:
             for i in range(1,len(row)-2,2):
                 self.graph[self.cities.index(row[0])][self.cities.index(row[i])] = int(row[i+1])
@@ -98,33 +96,38 @@ class Data:
 class UpdateRule:
     """An update function can be called like any normal Python function.
     This represents a point in the parameter space of the CA.
-
     Attributes:
     weights -- a numpy array with d rows and (2d + 1) columns, where d is the dimension of a cell value.
                 The first d columns are weights for the cell, the next d are weights for the neighbors, and the last one is bias.
     dimension -- d; each cell value is a d-length vector.
     """
 
+    WEIGHT_RANGE = 2 # values are in the interval -2 to 2
     dimension = 2
 
-    def __init__(self, neighborhood_size, weights = None):
+    def __init__(self, graph, weights = None):
         """Initialize a random update rule, or pass an update rule matrix.
-
         Arguments:
-        [TODO::Sripradha add] graph -- a numpy array graph where graph[i][j] is the weight from cells at positions i and j.
-        [TODO::Sripradha remove] neighborhood_size -- the number of neighbors of a cell
+        graph: Graph of cities with weights
         weights (optional) -- an weight matrix
         """
-        self.neighborhood_size = neighborhood_size
         if weights is None:
-            self.weights = self.make_weights(2)
+            self.weights = self.make_weights()
         else:
             self.weights = weights
+        self.graph = graph
 
     def __call__(self, cell_index, cell_value, neighbor_indices, neighbor_values):
         """Calculate f(x, N(x)).
         """
         z = self.get_z(cell_index, neighbor_indices, neighbor_values)
+
+        # print 'BEGIN'
+        # print self.weights[:, 0:self.dimension].dot(cell_value)
+        # print self.weights[:, self.dimension:2*self.dimension], z
+        # print self.weights[:, self.dimension:2*self.dimension].dot(z)
+        # print self.weights[:, 2*self.dimension:].flatten()
+        # print 'END'
 
         # self, neighbors, bias
         return self.weights[:, 0:self.dimension].dot(cell_value) \
@@ -133,15 +136,26 @@ class UpdateRule:
 
     def get_z(self, cell_index, neighbor_indices, neighbor_values):
         """Return the weighted sum of the neighbor values.
-        TODO::Sripradha -- Use the graph"""
-        # For now assume all weights are one, and there are two neighbors
-        return (1*neighbor_values[0] + 1*neighbor_values[1]) / float(len(neighbor_indices))
+        cell_index -- the index of the target cell
+        neighbor_indices -- a list of indices of source cells
+        neighbor_values -- a list of 2x1 numpy matrices, or an empty list"""
 
-    def make_weights(self, magnitude):
-        """Create a weights matrix uniformly distributed over -magnitude, magnitude."""
+        # All the cells which are non-zero are basically neighbours
+        z = np.zeros(2)
+        for neighbor_index, neighbor_value in zip(neighbor_indices, neighbor_values):
+            weight = self.graph[neighbor_index, cell_index]
+            z += weight * neighbor_value
+
+        if len(neighbor_indices) != 0:
+            for i in range(len(z)):
+                z[i] /= float(len(neighbor_indices))
+        return z
+
+    def make_weights(self):
+        """Create a weights matrix uniformly distributed over -WEIGHT_RANGE, WEIGHT_RANGE."""
         n_rows = self.dimension
         n_cols = 2 * self.dimension + 1
-        return 2 * magnitude * (np.random.rand(n_rows, n_cols) - 0.5)
+        return 2 * self.WEIGHT_RANGE * (np.random.rand(n_rows, n_cols) - 0.5)
 
     def crossover(self, update_rule):
         """Create a new update rule which is blended between this one and the one passed."""
@@ -156,18 +170,17 @@ class UpdateRule:
         for i in range(len(child_flat)):
             blend = random.random()
             child_flat[i] = blend * parent_a_flat[i] + (1 - blend) * parent_b_flat[i]
-        return UpdateRule(self.neighborhood_size, child_weights)
+        return UpdateRule(self.graph, child_weights)
 
-    def mutate(self, rate, eta):
-        """Change a percentage of the weights by eta"""
+    def mutate(self, rate):
+        """Change a given fraction of the weights to new random values."""
         weights = self.weights.flat
         for i in range(len(weights)):
             if random.random() < rate:
-                weights[i] += (random.random() - 0.5) * eta
+                weights[i] = 2 * self.WEIGHT_RANGE * (random.random() - 0.5)
 
 class CellularAutomaton:
     """Given an update rule an initial cell values, the CA can repeatedly update its own state.
-
     Attributes:
     cells -- a numpy array where cells[i][j] represents the jth dimension of the ith cell.
     """
@@ -177,7 +190,6 @@ class CellularAutomaton:
 
     def __init__(self, initial_values, update_rule):
         """Initialze a CA. The first dimension will be set to the initial_values, and all other dimensions are set to 0.
-
         Arguments:
         initial_values -- an array of cell values at time 0
         update_rule -- an instance of UpdateRule to update the cell values"""
@@ -188,17 +200,19 @@ class CellularAutomaton:
     def get_neighbors(self, i):
         """Return a list of indices of the cells with edges to the cell index i"""
         # Assume 1D grid of cells.
-        # TODO::Sripradha - Use the graph here
-        if i == 0:
-            return [i+1, len(self.cells) - 1]
-        elif i == len(self.cells) - 1:
-            return [0, len(self.cells) - 2] # remark: this breaks if there's only one cell
-        else:
-            return [i-1, i+1]
+        neighbors = []
+        graph = self.update_rule.graph
+        for index in range(len(graph[0])):  # Graph is an adj. matrix, so length will be same
+            if graph[i][index] != 0: # is neighbour
+                neighbors.append(index)
+        return neighbors
 
     def update(self):
         for i in range(len(self.cells)):
             neighbors = self.get_neighbors(i)
+            #print neighbors
+            #print len(self.cells)
+            # print self.cells[neighbors]
             self.cells[i] = self.update_rule(i, self.cells[i], neighbors, self.cells[neighbors])
 
     def get_values(self):
@@ -221,13 +235,44 @@ def evaluate_rule(rule, data):
     # print 'cumulative errors: %s' % debug_errors
     return error
 
+"""Generates output from a CA on a dataset
+Arguments:
+rule -- an instance of UpdateRule
+data -- a matrix of CA values, where data[t] is an array of all cells values at time t"""
+def generate_output(rule, data):
+    ca = CellularAutomaton(data[0], rule)
+    output = []
+    output.append(data[0])
+    for t in range(1, len(data)):
+        ca.update()
+        output.append(ca.get_values()[:, 0].flatten())
+    output = np.asarray(output)
+    return output
+
+"""Calculates average pearson correlation across all cities between output values
+and true values in the dataset
+Arguments:
+rule -- an instance of UpdateRule
+data -- a matrix of CA values, where data[t] is an array of all cells values at time t"""
+def pearson_correlation(rule, data):
+    output = generate_output(rule, data)
+    data = np.asarray(data)
+    num_cities = data.shape[1]
+    city_correlations = []
+    for i in range(num_cities):
+        correlation = pearsonr(data[:,i], output[:,i])
+        print(correlation[0])
+        city_correlations.append(correlation[0])
+    return np.mean(city_correlations)
+
+
 """Calculate the error of a given CA node on a set of training data and plot values
 Arguments:
 rule -- an instance of UpdateRule
 data -- a matrix of CA values, where data[t] is an array of all cells values at time t
 city_index -- index of the node in question"""
 def plot_error(rule, data, city_index):
-    print 'Final weights:\n%s' % rule.weights
+    print('Final weights:\n%s' % rule.weights)
     ca = CellularAutomaton(data[0], rule)
     outputs = []
     desired_output = []
@@ -255,7 +300,7 @@ def plot_error(rule, data, city_index):
 def main(args):
     # Create and run a CA.
     data = Data.create_from_args(args)
-    rule = UpdateRule(args.neighbor)
+    rule = UpdateRule(data.graph)
     evaluate_rule(rule, data.partitions[0])
 
 def make_argument_parser():

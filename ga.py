@@ -2,12 +2,17 @@ from ca import make_argument_parser as make_ca_argument_parser, Data, UpdateRule
 from trainer import Trainer, basic_train, cross_validation_train
 import random
 import numpy as np
+import math
 import matplotlib.pyplot as plt
+
+# We need to catch overflow errors and handle them, instead of just printing.
+np.seterr(all='raise')
 
 NUM_POPULATION = 100
 NUM_KEPT = 40 # keep this many for the next generation. must be even.
-MUTATION_RATE = 0.20 # the proportion of chromosomes that are mutated
-MUTATION_DISTANCE = 0.1
+
+# USE_COSINE_SIMILARITY = True
+USE_COSINE_SIMILARITY = False
 
 HUGE_NUMBER = 1e20
 
@@ -25,8 +30,8 @@ def make_ga_argument_parser():
     parser = make_ca_argument_parser()
     parser.add_argument('-g', '--generations', type = int, default = 5,
             help = 'Specify the number of generations to train for.')
-    parser.add_argument('-m', '--mutate', type = float, default = 0.1,
-            help = 'Specify the amount to mutate the weights by each generation.')
+    parser.add_argument('-m', '--mutate', type = float, default = 0.2,
+            help = 'Specify the mutation rate, the proportion of genes which are mutated each generation.')
     return parser
 
 def get_min_k(k, objects, scores):
@@ -47,8 +52,8 @@ def plot_timeseries(values):
     plt.ylabel('Error')
     plt.show()
 
-def make_random_rule(neighborhood_size):
-    return UpdateRule(neighborhood_size)
+def make_random_rule(graph):
+    return UpdateRule(graph)
 
 def argmin(l):
     if len(l) == 1:
@@ -61,16 +66,61 @@ def argmin(l):
             best = l[i]
     return best_i
 
+def predict_values(rule, interval):
+    """Creates a numpy array values, where values[i][j] represents the predicted value of city j at time i"""
+    ca = CellularAutomaton(interval[0], rule)
+    values = np.zeros((len(interval), len(interval[0])))
+    values[0] = interval[0]
+    for t in range(1, len(interval)):
+        ca.update()
+        values[t] = ca.get_values()[:, 0]
+    return values
+
+def cosine_similarity(A, B):
+    # Numerator term
+    numerator = 0.0
+    for a, b in zip(A, B):
+        numerator += a * b
+
+    # Denominator term A
+    denom_a = 0.0
+    for a in A:
+        denom_a += a ** 2
+    denom_a = math.sqrt(denom_a)
+
+    # Denominator term B
+    denom_b = 0.0
+    for b in B:
+        denom_b += b ** 2
+    denom_b = math.sqrt(denom_b)
+
+    return numerator / (denom_a * denom_b)
+
+def evalaute_cosine_similarity(rule, interval):
+    """rule -- Instance of UpdateRule
+    interval -- numpy matrix where interval[i][j] represents the value of city j at time i"""
+    predicted = predict_values(rule, interval)
+
+    # Sum cosine similarities for every city
+    similarity = 0.0
+    for i in range(len(interval[0])):
+        city_values = interval[:, i]
+        predicted_values = predicted[:, i]
+        similarity += cosine_similarity(city_values, predicted_values)
+    return similarity
+
 def evaluate_on_intervals(rule, intervals):
     error = 0.0
     for interval in intervals:
-        error += evaluate_rule(rule, interval)
+        if USE_COSINE_SIMILARITY:
+            error += 1 - evalaute_cosine_similarity(rule, interval)
+        else:
+            error += evaluate_rule(rule, interval)
     return error
 
 class GeneticTrainer:
     def __init__(self, args):
-        self.neighborhood_size = args.neighbor
-        self.mutate_amount = args.mutate
+        self.mutation_rate = args.mutate
         self.n_generations = args.generations
 
     def train(self, intervals, graph):
@@ -82,24 +132,26 @@ class GeneticTrainer:
             c. Use crossover to generate (N_pop - N_keep) new models
             d. Apply a chance to mutate to all models"""
         # Initialize search at cells with random parameters
-        population = [make_random_rule(self.neighborhood_size) for _ in range(NUM_POPULATION)]
+        population = [make_random_rule(graph) for _ in range(NUM_POPULATION)]
         # Iterate through generations:
         history = []
         for k in range(self.n_generations):
-            print '== begin generation %s ==' % k
+            print ('== begin generation %s ==' % k)
             # Evaluate the fitness of every CA in the population
             evaluations = []
             for update_rule in population:
                 try:
                     evaluations.append(evaluate_on_intervals(update_rule, intervals))
-                except OverflowError:
+                except FloatingPointError:
                     # If the CA is broken, assign it a really big error
-                    evaluations.append(HUGE_NUMBER)
+                    evaluations.append(float('inf'))
+                # except KeyboardInterrupt:
+                #     print 'foofoo'
 
             # Track the best and average error over this generation
             error_mean = float(sum(evaluations)) / len(evaluations)
             error_min = min(evaluations)
-            print 'errors: best %s, error_mean %s' % (error_min, error_mean)
+            print ('errors: best %s, error_mean %s' % (error_min, error_mean))
             history.append((error_min, error_mean))
 
             # Select the best N_keep models for the new generation
@@ -114,12 +166,20 @@ class GeneticTrainer:
                 parent_b = survivors[i + 1]
                 children.append(parent_a.crossover(parent_b))
 
+            # Create next generation by mutating the best performers.
+            # Elitism: Only mutate the children
+            for model in children:
+                model.mutate(self.mutation_rate)
+
             population = survivors + children
 
-            # Create next generation by mutating the best performers.
-            for model in population:
-                model.mutate(MUTATION_RATE, MUTATION_DISTANCE)
-
+            # Every 100 generations, print the weights.
+            if k % 100 == 0:
+                best_index = argmin(evaluations)
+                best = population[best_index]
+                print
+                print (best.weights)
+                print
 
         # plot_timeseries(history)
         best_index = argmin(evaluations)
