@@ -1,15 +1,16 @@
 import numpy as np
-from ca import make_argument_parser, Data, UpdateRule
+from ca import make_argument_parser as ca_make_arg_parser, Data, UpdateRule
 from trainer import Trainer, basic_train
 import ca
 from sklearn import linear_model
 import matplotlib.pyplot as plt
 import scipy.stats as stat
+from scipy import spatial
 
 class RegressionTrainer(Trainer):
 	def __init__(self, args):
 		pass
-	
+
 	def train(self, partitions, graph):
 		num_cities = len(graph)
 		num_pairs = sum((len(x)-2) * num_cities for x in partitions)
@@ -42,8 +43,6 @@ class RegressionTrainer(Trainer):
 
 	def test(self, partition, graph):
 		prediction = np.zeros(shape = np.shape(partition))
-		#prediction[0] = np.copy(partition[0])
-		#prediction[1] = np.copy(partition[1])
 		for t, time in enumerate(partition):
 			if t < 2:
 				continue
@@ -56,10 +55,14 @@ class RegressionTrainer(Trainer):
 					x[3] = np.dot(partition[t-2], graph[c])
 					x[4] = 1
 					prediction[t][c] = np.dot(x, self.update_rule.weights[0])
-		
+		pearson = np.zeros(len(graph))
+		cosine_similarity = np.zeros(len(graph))
+
 		for city_index in range(len(graph)):
 			city_actual = partition[2:,city_index]
 			city_predicted = prediction[2:,city_index]
+			pearson[city_index] = stat.pearsonr(city_actual, city_predicted)[0]
+			cosine_similarity[city_index] = 1 - spatial.distance.cosine(city_actual, city_predicted)			
 			plt.plot(range(len(partition) -2), city_actual, label = 'Actual')
 			plt.plot(range(len(partition) -2), city_predicted, label = 'Predicted')
 			plt.ylabel('Count of Flu-Related Searches')
@@ -69,23 +72,29 @@ class RegressionTrainer(Trainer):
 			print("Saving output for city " + str(city_index))
 			plt.savefig("output/RegressionCA_City" + str(city_index) + "_Actual_vs_Predicted.png")
 			plt.clf()	
-		'''
-		pearson = np.zeros(shape = len(partition)-2)
-		print prediction[2]
-		for t, timeslice in enumerate(partition[2:]):
-			pearson[t] = stat.pearsonr(timeslice, prediction[t])[0]
-			
-		plt.plot(range(len(partition) -2), pearson)
+				
+		plt.plot(range(len(graph)), pearson, linestyle = 'None', marker = r'$\bowtie$')
 		plt.ylabel('Pearson Correlation Coefficient')
-		plt.xlabel('Time')
-		plt.title("Pearson Coefficient Between Actual and Predicted Counts\nat Different Timepoints, across All Cities")
+		plt.xlabel('Index of City')
+		plt.ylim(0.0, 1.0)
+		plt.xlim(0.0, len(graph))
+		plt.title("Pearson Coefficient Between Actual\nand Predicted Counts for All Cities")
 		plt.savefig("output/RegressionCA_PearsonCoef.png")
 		plt.clf()
 
-		'''	
+		plt.plot(range(len(graph)), cosine_similarity, linestyle = 'None', marker = r'$\bowtie$')
+		plt.ylabel('Cosine Similarity')
+		plt.xlabel('Index of City')
+		plt.ylim(0.0, 1.0)
+		plt.xlim(0.0, len(graph))
+		plt.title("Cosine Simialrity Between Actual\nand Predicted Counts for All Cities")
+		plt.savefig("output/RegressionCA_CosineSim.png")
+		plt.clf()
+
+			
 	
 def parse_args():
-	parser = make_argument_parser()
+	parser = ca_make_arg_parser()
 	return parser.parse_args()
 
 if __name__ == '__main__':
