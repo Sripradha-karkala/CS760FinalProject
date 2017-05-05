@@ -1,11 +1,15 @@
 """Some hand-crafted CA's to test on
+How to add another example:
+1. Write make_example_k
+2. Increment N_EXAMPLES
+3. Add a conditional for your example k
 """
 
 from ca import make_argument_parser as make_ca_argument_parser, Data, UpdateRule, CellularAutomaton, plot_error
 import random
 import numpy as np
 
-N_EXAMPLES = 3
+N_EXAMPLES = 4
 
 def make_example_0(graph):
     """ Constant example """
@@ -45,6 +49,15 @@ def make_example_2(graph):
     ])
     return UpdateRule(graph, weights)
 
+def make_example_3(graph):
+    weights = np.array([
+        # [1.42401506e+00, -4.97480473e-01, 1.92521117e-04, -1.84918083e-04, 1.20461306e+02],
+        # [1.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00]
+        [1.2, -1, 0, 0, 0],
+        [1.00000000, 0.00000000, 0.00000000, 0.00000000, 0.00000000]
+    ])
+    return UpdateRule(graph, weights)
+
 def run_example(args):
     example = args.example
     if example > N_EXAMPLES - 1:
@@ -60,6 +73,10 @@ def run_example(args):
         rule = make_example_1(data.graph)
     elif example == 2:
         rule = make_example_2(data.graph)
+    elif example == 3:
+        rule = make_example_3(data.graph)
+    else:
+        raise ValueError('Conditional for example %s is not written' % example)
 
     # Plot the results
     plot_error(rule, data.partitions[0], 0)
