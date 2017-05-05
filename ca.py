@@ -6,6 +6,7 @@ import math
 import argparse
 import matplotlib.pyplot as plt
 from scipy.stats.stats import pearsonr
+from scipy import spatial
 
 a = np.array([1.,2.,3.])
 b = np.array([2.,4.,6.])
@@ -28,10 +29,10 @@ class Data:
     @staticmethod
     def create_from_args(args):
         """Factory method for convenience. Pass it the args object and it return a Data object."""
-        if 'split' in args:
-            return Data(args.input_file, args.neighbor_file, DataType.DATA_WITH_FLOATS, split=args.split)
-        else:
+        if 'num_folds' in args:
             return Data(args.input_file, args.neighbor_file, DataType.DATA_WITH_FLOATS, num_folds=args.num_folds)
+        else:
+            return Data(args.input_file, args.neighbor_file, DataType.DATA_WITH_FLOATS, split=args.split)
 
     """Constructor: Given a CSV file of flu rates, create a list of matrices for training and testing.
     Arguments:
@@ -296,6 +297,59 @@ def plot_error(rule, data, city_index):
     plt.legend()
     plt.xlabel('Iteration')
     plt.show()
+
+"""For every cell(city), plot the predicted vs real values over time (uses real values at t-1 and t-2 to predict value at t)
+update_rule -- an instance of UpdateRule
+partition -- a matrix of CA values from testset, where data[t] is an array of all cells values at time t
+graph -- a 2D matrix of cells specifying neighbor values
+prefix -- a string prefix to use for output images"""
+def plot_timeseries(update_rule, partition, graph, prefix):
+    prediction = np.zeros(shape = np.shape(partition))
+    for t, time in enumerate(partition):
+        if t < 2:
+            continue
+	else:
+            for c, city in enumerate(time):
+                x = np.zeros(5)
+                x[0] = partition[t-1][c]
+                x[1] = partition[t-2][c]
+                x[2] = np.dot(partition[t-1], graph[c])
+                x[3] = np.dot(partition[t-2], graph[c])
+                x[4] = 1
+                prediction[t][c] = np.dot(x, update_rule.weights[0])
+		
+    for city_index in range(len(graph)):
+        city_actual = partition[2:,city_index]
+        city_predicted = prediction[2:,city_index]
+        pearson[city_index] = pearsonr(city_actual, city_predicted)[0]
+        cosine_similarity[city_index] = 1 - spatial.distance.cosine(city_actual, city_predicted)	
+        plt.plot(range(len(partition) -2), city_actual, label = 'Actual')
+        plt.plot(range(len(partition) -2), city_predicted, label = 'Predicted')
+        plt.ylabel('Count of Flu-Related Searches')
+        plt.xlabel('Time')
+        plt.legend(loc = 'best')
+        plt.title("City " + str(city_index) + "'s Flu-Related Search Trends")		
+        print("Saving output for city " + str(city_index))
+        plt.savefig("output/" + prefix +"_City" + str(city_index) + "_Actual_vs_Predicted.png")
+        plt.clf()	
+        
+    plt.plot(range(len(graph)), pearson, linestyle = 'None', marker = r'$\bowtie$')
+    plt.ylabel('Pearson Correlation Coefficient')
+    plt.xlabel('Index of City')
+    plt.ylim(0.0, 1.0)
+    plt.xlim(0.0, len(graph))
+    plt.title("Pearson Coefficient Between Actual\nand Predicted Counts for All Cities")
+    plt.savefig("output/" + prefix +"_PearsonCoef.png")
+    plt.clf()
+
+    plt.plot(range(len(graph)), cosine_similarity, linestyle = 'None', marker = r'$\bowtie$')
+    plt.ylabel('Cosine Similarity')
+    plt.xlabel('Index of City')
+    plt.ylim(0.0, 1.0)
+    plt.xlim(0.0, len(graph))
+    plt.title("Cosine Simialrity Between Actual\nand Predicted Counts for All Cities")
+    plt.savefig("output/" + prefix +"_CosineSim.png")
+    plt.clf()
 
 def main(args):
     # Create and run a CA.
