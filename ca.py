@@ -29,7 +29,7 @@ class Data:
     @staticmethod
     def create_from_args(args):
         """Factory method for convenience. Pass it the args object and it return a Data object."""
-        if 'num_folds' in args:
+        if args.num_folds is not None:
             return Data(args.input_file, args.neighbor_file, DataType.DATA_WITH_FLOATS, num_folds=args.num_folds)
         else:
             return Data(args.input_file, args.neighbor_file, DataType.DATA_WITH_FLOATS, split=args.split)
@@ -317,22 +317,22 @@ def plot_timeseries(update_rule, partition, graph, prefix):
                 x[3] = np.dot(partition[t-2], graph[c])
                 x[4] = 1
                 prediction[t][c] = np.dot(x, update_rule.weights[0])
-		
+
     for city_index in range(len(graph)):
         city_actual = partition[2:,city_index]
         city_predicted = prediction[2:,city_index]
         pearson[city_index] = pearsonr(city_actual, city_predicted)[0]
-        cosine_similarity[city_index] = 1 - spatial.distance.cosine(city_actual, city_predicted)	
+        cosine_similarity[city_index] = 1 - spatial.distance.cosine(city_actual, city_predicted)
         plt.plot(range(len(partition) -2), city_actual, label = 'Actual')
         plt.plot(range(len(partition) -2), city_predicted, label = 'Predicted')
         plt.ylabel('Count of Flu-Related Searches')
         plt.xlabel('Time')
         plt.legend(loc = 'best')
-        plt.title("City " + str(city_index) + "'s Flu-Related Search Trends")		
+        plt.title("City " + str(city_index) + "'s Flu-Related Search Trends")
         print("Saving output for city " + str(city_index))
         plt.savefig("output/" + prefix +"_City" + str(city_index) + "_Actual_vs_Predicted.png")
-        plt.clf()	
-        
+        plt.clf()
+
     plt.plot(range(len(graph)), pearson, linestyle = 'None', marker = r'$\bowtie$')
     plt.ylabel('Pearson Correlation Coefficient')
     plt.xlabel('Index of City')
